@@ -1,0 +1,127 @@
+{
+  "title": "bpost",
+  "config": {
+    "step": {
+      "user": {
+        "title": "bpost instellen",
+        "description": "bpost-tracking heeft geen account nodig — enkel de bezorgpostcode. Deze wordt de standaardwaarde voor elk pakket dat je aan deze hub toevoegt. Voeg een extra hub toe voor een andere postcode.",
+        "data": {
+          "postal_code": "Postcode"
+        },
+        "data_description": {
+          "postal_code": "De bezorgpostcode — bpost vereist deze om een pakket op te zoeken."
+        }
+      }
+    },
+    "error": {
+      "invalid_postcode": "Voer een postcode in."
+    },
+    "abort": {
+      "already_configured": "Er is al een bpost-hub voor deze postcode ingesteld."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "bpost-opties",
+        "menu_options": {
+          "parcels": "Pakketten",
+          "settings": "Instellingen"
+        }
+      },
+      "parcels": {
+        "title": "Pakketten",
+        "data": {
+          "barcodes": "Gevolgde barcodes"
+        },
+        "data_description": {
+          "barcodes": "De bpost-barcode(s), zoals vermeld op de verzendbevestiging of het niet-thuiskaartje. Gebruikt de postcode van deze hub."
+        }
+      },
+      "settings": {
+        "title": "Instellingen",
+        "data": {
+          "delivered_filter_type": "Bezorgde pakketten: filteren op",
+          "delivered_filter_amount": "Bezorgde pakketten: aantal",
+          "include_history": "Statusgeschiedenis toevoegen"
+        }
+      }
+    },
+    "error": {
+      "invalid_barcode": "Voer minstens één barcode in."
+    }
+  },
+  "selector": {
+    "delivered_filter_type": {
+      "options": {
+        "days": "Dagen",
+        "parcels": "Aantal pakketten"
+      }
+    }
+  },
+  "services": {
+    "track_parcel": {
+      "name": "Pakket volgen",
+      "description": "Begin met het volgen van een bpost-pakket via de barcode.",
+      "fields": {
+        "barcode": {
+          "name": "Barcode",
+          "description": "De bpost-barcode."
+        },
+        "postal_code": {
+          "name": "Postcode",
+          "description": "Aan welke bpost-hub het pakket toevoegen, als er meerdere zijn ingesteld. Laat leeg als er maar één hub is."
+        }
+      }
+    },
+    "untrack_parcel": {
+      "name": "Pakket niet meer volgen",
+      "description": "Stop met het volgen van een bpost-pakket via de barcode.",
+      "fields": {
+        "barcode": {
+          "name": "Barcode",
+          "description": "De bpost-barcode om niet meer te volgen."
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "parcel_registered": "Een pakket is geregistreerd",
+      "parcel_status_changed": "De status van een pakket is gewijzigd",
+      "parcel_delivered": "Een pakket is bezorgd",
+      "parcel_delivery_time_changed": "De verwachte bezorgtijd van een pakket is gewijzigd"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Verversen"
+      }
+    },
+    "calendar": {
+      "deliveries": {
+        "name": "Bezorgingen"
+      }
+    },
+    "sensor": {
+      "incoming_parcels": {
+        "name": "Inkomende pakketten",
+        "unit_of_measurement": "pakketten"
+      },
+      "next_delivery": {
+        "name": "Volgende bezorging"
+      },
+      "delivered_parcels": {
+        "name": "Bezorgde pakketten",
+        "unit_of_measurement": "pakketten"
+      },
+      "last_update": {
+        "name": "Laatste succesvolle update"
+      },
+      "parcel": {
+        "name": "Pakket {barcode}"
+      }
+    }
+  }
+}

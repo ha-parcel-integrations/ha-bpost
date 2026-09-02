@@ -1,0 +1,127 @@
+{
+  "title": "bpost",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up bpost",
+        "description": "bpost tracking needs no account — just the postal code parcels are delivered to. It becomes the default for every parcel you add to this hub. Add another hub for a different postal code.",
+        "data": {
+          "postal_code": "Postal code"
+        },
+        "data_description": {
+          "postal_code": "The delivery postal code — bpost requires it to look up a parcel."
+        }
+      }
+    },
+    "error": {
+      "invalid_postcode": "Enter a postal code."
+    },
+    "abort": {
+      "already_configured": "A bpost hub for this postal code is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "bpost options",
+        "menu_options": {
+          "parcels": "Parcels",
+          "settings": "Settings"
+        }
+      },
+      "parcels": {
+        "title": "Parcels",
+        "data": {
+          "barcodes": "Tracked barcodes"
+        },
+        "data_description": {
+          "barcodes": "The bpost barcode(s), as printed on the shipping confirmation or the missed-delivery card. Uses this hub's postal code."
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "delivered_filter_type": "Delivered parcels: filter by",
+          "delivered_filter_amount": "Delivered parcels: amount",
+          "include_history": "Include status history"
+        }
+      }
+    },
+    "error": {
+      "invalid_barcode": "Enter at least one barcode."
+    }
+  },
+  "selector": {
+    "delivered_filter_type": {
+      "options": {
+        "days": "Days",
+        "parcels": "Number of parcels"
+      }
+    }
+  },
+  "services": {
+    "track_parcel": {
+      "name": "Track parcel",
+      "description": "Start tracking a parcel by its bpost barcode.",
+      "fields": {
+        "barcode": {
+          "name": "Barcode",
+          "description": "The bpost barcode."
+        },
+        "postal_code": {
+          "name": "Postal code",
+          "description": "Which bpost hub to add it to, if more than one is set up. Omit it when only one hub exists."
+        }
+      }
+    },
+    "untrack_parcel": {
+      "name": "Untrack parcel",
+      "description": "Stop tracking a parcel by its bpost barcode.",
+      "fields": {
+        "barcode": {
+          "name": "Barcode",
+          "description": "The bpost barcode to stop tracking."
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "parcel_registered": "A parcel was registered",
+      "parcel_status_changed": "A parcel's status changed",
+      "parcel_delivered": "A parcel was delivered",
+      "parcel_delivery_time_changed": "A parcel's expected delivery time changed"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Refresh"
+      }
+    },
+    "calendar": {
+      "deliveries": {
+        "name": "Deliveries"
+      }
+    },
+    "sensor": {
+      "incoming_parcels": {
+        "name": "Incoming parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "next_delivery": {
+        "name": "Next delivery"
+      },
+      "delivered_parcels": {
+        "name": "Delivered parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "last_update": {
+        "name": "Last successful update"
+      },
+      "parcel": {
+        "name": "Parcel {barcode}"
+      }
+    }
+  }
+}

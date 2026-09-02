@@ -1,0 +1,126 @@
+# Extract bpost tracking codes from incoming e-mail and register them
+# with `bpost.track_parcel`, so parcels start tracking the moment the
+# shipping confirmation lands in your inbox — no manual entry.
+#
+# A bpost hub is scoped to one delivery postal code (set once, at setup), so
+# tracking only needs the barcode. This recipe targets the common case of
+# parcels addressed to your own household's hub; if you run more than one
+# bpost hub, add `postal_code: "<hub's postcode>"` to the `bpost.track_parcel`
+# calls below to pick one.
+#
+# Requirements:
+#   - one or more core IMAP config entries with "text" enabled under
+#     "message data" and the max message size raised (carrier mails are
+#     long) — full setup guide and pitfalls: track_parcels_from_email.md
+#   - optional: an `ai_task` entity for the AI fallback branch; delete
+#     the whole `else:` block if you don't use one
+#   - PRIVACY: by default this fires on EVERY incoming mail and (with the
+#     AI branch) can send mail bodies to your AI Task. Scope the IMAP
+#     search to bpost's own sender address first — see "Scope & privacy"
+#     in the .md.
+#
+# The regex is deliberately written without backslashes (`(?<![0-9A-Za-z])`
+# instead of `\b`, `[0-9]` instead of `\d`): Jinja treats `\b` inside a
+# string literal as a backspace escape, so the pattern would silently
+# never match.
+
+alias: "bpost: track from e-mail"
+description: >-
+  Listens to imap_content events from all IMAP entries. Fast regex path for
+  bpost tracking codes; optional AI fallback for mails whose layout the
+  regex does not recognise.
+mode: queued
+max: 10
+
+triggers:
+  - trigger: event
+    event_type: imap_content
+
+variables:
+  sender: "{{ trigger.event.data.sender | default('') | lower }}"
+  subject: "{{ trigger.event.data.subject | default('') }}"
+  body: "{{ trigger.event.data.text | default('') }}"
+  content: "{{ subject ~ ' ' ~ body }}"
+  # bpost publishes no barcode format (BUILD_PLAN.md §5), so this matches a
+  # generic UPU-style code — 2 letters, 8-11 digits, 2 letters (e.g.
+  # CE642846115BE) — rather than guessing a bpost-specific prefix. If your
+  # mails carry a different shape, adjust the pattern below.
+  bpost_codes: >-
+    {{ content | regex_findall('(?<![0-9A-Za-z])[A-Z]{2}[0-9]{8,11}[A-Z]{2}(?![0-9A-Za-z])')
+       | unique | list }}
+  # Keyword gate for the AI fallback — localise to your language(s).
+  is_parcel_mail: >-
+    {{ content | lower is search('bpost|pakket|colis|package|shipped|out for delivery|track|shipment|delivery') }}
+
+conditions:
+  # initial=true means "new message"; false means a duplicate trigger of
+  # the SAME message (e.g. after a reconnect) — requiring it is free dedup.
+  - condition: template
+    value_template: "{{ trigger.event.data.initial | default(true) }}"
+  - condition: template
+    value_template: "{{ is_parcel_mail or bpost_codes | count > 0 }}"
+
+actions:
+  - repeat:
+      for_each: "{{ bpost_codes }}"
+      sequence:
+        - action: bpost.track_parcel
+          data:
+            barcode: "{{ repeat.item }}"
+  - if:
+      - condition: template
+        value_template: "{{ bpost_codes | count > 0 }}"
+    then:
+      - action: notify.mobile_app_your_phone
+        data:
+          title: "📦 bpost parcel picked up from mail"
+          message: >-
+            {{ bpost_codes | join(', ') }} (mail from {{ sender }})
+    else:
+      # ---- Optional AI fallback — delete this block if you have no ai_task entity ----
+      - action: ai_task.generate_data
+        data:
+          task_name: bpost-tracking-code-extraction
+          entity_id: ai_task.your_ai_task_entity
+          instructions: >-
+            Below is an e-mail. Determine whether it contains a bpost
+            parcel tracking code (barcode). bpost has published no fixed
+            format for it, but it commonly looks like two letters, 8-11
+            digits and two letters (e.g. CE642846115BE). Only return a real
+            tracking/barcode value, never an order, customer or invoice
+            number. If the mail is from a different carrier, answer
+            'other'. When in doubt: 'none'.
+
+            Sender: {{ sender }}
+            Subject: {{ subject }}
+            Body:
+            {{ body[:6000] }}
+          structure:
+            carrier:
+              description: Whether a bpost tracking code was found
+              required: true
+              selector:
+                select:
+                  options: ["bpost", "other", "none"]
+            tracking_code:
+              description: The tracking code, or empty if none
+              required: false
+              selector:
+                text:
+        response_variable: ai_result
+      - choose:
+          - conditions: "{{ ai_result.data.carrier == 'bpost' and (ai_result.data.tracking_code | default('') | trim) != '' }}"
+            sequence:
+              - action: bpost.track_parcel
+                data:
+                  barcode: "{{ ai_result.data.tracking_code | trim }}"
+              - action: notify.mobile_app_your_phone
+                data:
+                  title: "📦 bpost parcel picked up from mail (AI)"
+                  message: "{{ ai_result.data.tracking_code | trim }} (mail from {{ sender }})"
+          - conditions: "{{ ai_result.data.carrier == 'other' and (ai_result.data.tracking_code | default('') | trim) != '' }}"
+            sequence:
+              - action: notify.mobile_app_your_phone
+                data:
+                  title: "📦 Tracking number found – not a bpost parcel"
+                  message: "{{ ai_result.data.tracking_code | trim }} (mail from {{ sender }}, subject: {{ subject }})"
