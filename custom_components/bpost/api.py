@@ -1,8 +1,7 @@
 """bpost public tracking API client.
 
-Three keyless, unauthenticated JSON routes on ``track.bpost.cloud``, per
-BUILD_PLAN.md §2 (folded into this carrier's own CLAUDE.md once the build
-shipped). **No headers at all** — no ``Authorization``, no ``x-api-key``, no
+Three keyless, unauthenticated JSON routes on ``track.bpost.cloud``.
+**No headers at all** — no ``Authorization``, no ``x-api-key``, no
 cookie, no ``User-Agent`` override, no ``lang`` query parameter, no
 ``Referer``. ``track.bpost.cloud`` has a different WAF posture from
 ``www.bpost.be``/``login.bpost.be``, which do need a browser fingerprint —
@@ -91,9 +90,9 @@ class BpostApiClient:
     ) -> dict[str, Any] | None:
         """Fetch the bare ``track/items`` result — no enrichment.
 
-        Used by the config/options flow's live validation (BUILD_PLAN.md §2:
-        "Validate by actually calling track/items"), which must not also
-        trigger the round-status call.
+        Used by the config/options flow's live validation, which validates by
+        actually calling ``track/items`` and must not also trigger the
+        round-status call.
         """
         url = TRACKING_API_URL.format(
             barcode=_quoted(barcode), postal_code=_quoted(postal_code)
@@ -125,9 +124,9 @@ class BpostApiClient:
     ) -> dict[str, Any] | None:
         """Fetch the bonus on-round enrichment; any failure means "no data".
 
-        Per BUILD_PLAN.md §2: "Any non-200 or error body is swallowed as 'no
-        data' and must never fail the refresh or mark the parcel
-        unavailable." A network error is swallowed the same way — this call
+        Any non-200 or error body is swallowed as "no data" and must never
+        fail the refresh or mark the parcel unavailable. A network error is
+        swallowed the same way — this call
         backs one bonus attribute set, never a canonical field.
         """
         url = ITEM_ON_ROUND_STATUS_URL.format(
@@ -150,8 +149,7 @@ def _dearray(round_status: dict[str, Any]) -> dict[str, Any]:
     """Unwrap every 1-element-array value in an ``itemOnRoundStatus`` object.
 
     ``nrOfStopsUntilTarget``, ``progressUntilTarget``, ``lastKnownLocation``
-    and ``targetLocation`` are each documented (BUILD_PLAN.md §2) as a
-    1-element array — index ``[0]`` before use.
+    and ``targetLocation`` each arrive as a 1-element array — index ``[0]`` before use.
     """
     return {
         key: (value[0] if isinstance(value, list) and value else value)

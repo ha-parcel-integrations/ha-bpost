@@ -83,7 +83,7 @@ async def test_get_item_returns_none_on_empty_items():
 
 
 async def test_get_item_raises_on_400():
-    """A barcode-only request was probed and returned HTTP 400 (BUILD_PLAN.md §5)."""
+    """A barcode-only request (no postal code) was probed and returned HTTP 400."""
     client = BpostApiClient(_single(400, {}))
     with pytest.raises(BpostApiError):
         await client.async_get_item(BARCODE, POSTAL_CODE)

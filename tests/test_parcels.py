@@ -64,7 +64,7 @@ def test_map_parcel_status_missing_is_unknown():
 
 
 def test_map_parcel_status_prefix_match_example_from_plan(caplog):
-    """BUILD_PLAN.md §3's own example: out_for_delivery_byBike -> out_for_delivery."""
+    """An unseen method suffix prefix-matches: out_for_delivery_byBike -> out_for_delivery."""
     assert map_parcel_status("out_for_delivery_byBike") == ParcelStatus.OUT_FOR_DELIVERY
     assert "prefix match" in caplog.text
 
@@ -131,7 +131,7 @@ def test_to_iso_timestamp_converts_epoch_milliseconds():
 
 
 def test_build_history_orders_oldest_to_newest_from_newest_first_input():
-    """bpost's own events array is newest-first (BUILD_PLAN.md §4)."""
+    """bpost's own events array is newest-first."""
     events = [
         event("2026-04-29", "08:46", "Wordt geleverd", "Sera livré", "Being delivered"),
         event("2026-04-28", None, "Onderweg", "En route", "In transit"),
@@ -260,11 +260,10 @@ def test_normalize_delivered_mailbox_drop():
 
 @pytest.mark.parametrize("factory", [delivered_kariboo_item, delivered_unknown_method_item])
 def test_delivered_is_never_derived_from_the_status_name(factory):
-    """The core §4 rule: actualDeliveryInformation decides, not activeStep.name.
+    """The core rule: actualDeliveryInformation decides, not activeStep.name.
 
     Both a known pickup-point delivery code and a wholly unseen delivered
-    method must report delivered — the fixtures BUILD_PLAN.md §7 names
-    explicitly.
+    method must report delivered.
     """
     parcel = _normalize(factory())
     assert parcel["delivered"] is True

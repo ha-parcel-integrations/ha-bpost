@@ -41,7 +41,7 @@ variables:
   subject: "{{ trigger.event.data.subject | default('') }}"
   body: "{{ trigger.event.data.text | default('') }}"
   content: "{{ subject ~ ' ' ~ body }}"
-  # bpost publishes no barcode format (BUILD_PLAN.md §5), so this matches a
+  # bpost publishes no barcode format, so this matches a
   # generic UPU-style code — 2 letters, 8-11 digits, 2 letters (e.g.
   # CE642846115BE) — rather than guessing a bpost-specific prefix. If your
   # mails carry a different shape, adjust the pattern below.

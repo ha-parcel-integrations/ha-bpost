@@ -44,9 +44,8 @@ _LOGGER = logging.getLogger(__name__)
 
 # Base for the 429 backoff when the carrier's response carries no
 # ``Retry-After`` of its own: ``BACKOFF_BASE_SECONDS * 2**consecutive_429``,
-# capped at ``BACKOFF_CAP_SECONDS``. bpost's own rate limit is unmeasured
-# (BUILD_PLAN.md §1: "rate_limit: unknown") — this is the suite's generic
-# safety net, not evidence bpost actually 429s.
+# capped at ``BACKOFF_CAP_SECONDS``. bpost's own rate limit is unmeasured —
+# this is the suite's generic safety net, not evidence bpost actually 429s.
 BACKOFF_BASE_SECONDS = 60
 BACKOFF_CAP_SECONDS = 3600
 

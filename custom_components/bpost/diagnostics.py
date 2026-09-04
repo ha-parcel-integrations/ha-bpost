@@ -9,9 +9,8 @@ from homeassistant.core import HomeAssistant
 from . import BpostConfigEntry
 
 # Diagnostics are pasted into public issues, so redact anything that
-# identifies a person, an address or a specific parcel — see BUILD_PLAN.md
-# §6, folded into this carrier's own CLAUDE.md once the build shipped.
-# Over-redacting is cheap; under-redacting leaks a user's home address into a
+# identifies a person, an address or a specific parcel. Over-redacting is
+# cheap; under-redacting leaks a user's home address into a
 # GitHub thread.
 #
 # "raw_status" is a deliberate over-redaction, mirroring the Ceska Posta "id"

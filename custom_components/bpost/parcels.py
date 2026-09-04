@@ -4,8 +4,8 @@ Everything in this module is a **pure function** — no I/O, no Home Assistant
 objects beyond the config entry's options (logging aside, which is the
 established one-shot-warning pattern used throughout the suite).
 
-``payload: reconstructed`` (BUILD_PLAN.md §0.3) — every field lookup below was
-read off a third-party client's source, not off this repo's own wire. The
+Every field lookup below was read off a third-party client's source, not off
+this repo's own wire. The
 one-shot WARNINGs in this module are the safety net a pre-1.0 release ships
 with: an unrecognised status, a first-seen ETA window or ``deliveryPoint``
 object all log once instead of silently mis-mapping.
@@ -38,8 +38,8 @@ NEW_ISSUE_URL = (
     "?template=unrecognised_status.yml"
 )
 
-# Three known ``activeStep.name`` codes out of an unknown set (BUILD_PLAN.md
-# §3) — neither source client claims a complete vocabulary, and the codes are
+# Three known ``activeStep.name`` codes out of an unknown set — neither
+# source client claims a complete vocabulary, and the codes are
 # not documented anywhere. Written against the open ``ParcelStatus`` enum:
 # nothing maps to registered/in_transit/at_pickup_point/returning/problem
 # because no evidence exists for a bpost code reaching them — leave those
@@ -59,8 +59,7 @@ def _build_prefix_table() -> dict[str, ParcelStatus]:
     and ``delivered_kariboo_point`` both contribute ``delivered``. An unseen
     code is then matched by trying its own decreasing-length prefixes against
     this table (see :func:`_prefix_match`) — which is exactly how
-    ``out_for_delivery_byBike`` resolves to ``out_for_delivery`` in
-    BUILD_PLAN.md §3's own example.
+    ``out_for_delivery_byBike`` resolves to ``out_for_delivery``.
     """
     table: dict[str, ParcelStatus] = {}
     for key, status in STATUS_MAP.items():
@@ -96,8 +95,7 @@ _delivery_point_first_sighting_warned = False
 def _warn_unmapped_status(code: str, *, prefix_status: ParcelStatus | None) -> None:
     """Log an unrecognised ``activeStep.name`` once, distinguishing the path taken.
 
-    A prefix hit is a mitigation, not evidence (BUILD_PLAN.md §3) — it still
-    warns, with its own wording, so a field report says which path resolved
+    A prefix hit is a mitigation, not evidence — it still warns, with its own wording, so a field report says which path resolved
     it.
     """
     if code in _unmapped_statuses_logged:
@@ -125,8 +123,7 @@ def _warn_unmapped_status(code: str, *, prefix_status: ParcelStatus | None) -> N
 def map_parcel_status(code: str | None) -> ParcelStatus:
     """Map an ``activeStep.name`` code to a canonical :class:`ParcelStatus`.
 
-    Exact lookup first, then a defensive longest-prefix match (BUILD_PLAN.md
-    §3), then ``unknown`` — every path but the exact hit logs a one-shot
+    Exact lookup first, then a defensive longest-prefix match, then ``unknown`` — every path but the exact hit logs a one-shot
     warning so the map can grow from field reports.
     """
     if not code:
@@ -160,7 +157,7 @@ def _warn_eta_first_sighting(raw_eta: Any) -> None:
 
     Inverse of the usual warning (mirrors Ceska Posta's ``_warn_eta_populated``):
     this field has never been observed non-null, so the first real sighting is
-    the datum that settles BUILD_PLAN.md §0.3's ETA-shape conflict, whatever
+    the datum that settles which ETA shape bpost actually sends, whatever
     shape it turns out to be.
     """
     global _eta_first_sighting_warned
@@ -232,8 +229,7 @@ def to_iso_timestamp(value: Any) -> str | None:
     Numbers are treated as **epoch milliseconds**; strings pass through
     untouched (their consumers are guarded by :func:`parse_iso`). Neither
     source client stamps a number for ``expectedDeliveryTimeRange.time1``/
-    ``.time2``, but the shape is unconfirmed (BUILD_PLAN.md §0.3), so this
-    stays permissive rather than assuming a string.
+    ``.time2``, but the shape is unconfirmed, so this stays permissive rather than assuming a string.
     """
     if value is None:
         return None
@@ -275,7 +271,7 @@ def build_history(
     ``events[0]`` as "latest"); the canonical contract is oldest → newest,
     capped at ``max_events``. Sorting explicitly on the parsed timestamp
     (rather than just reversing) means a tie keeps the newest-first input
-    order as its tiebreak, per BUILD_PLAN.md §4 — Python's sort is stable, so
+    order as its tiebreak — Python's sort is stable, so
     that falls out of sorting ascending without extra code. Each event has no
     status code of its own on this route, so ``status`` is always ``None``
     (never ``unknown``) and ``raw_status`` is the localised description text.
@@ -311,7 +307,7 @@ def _delivered_at(raw: dict) -> str | None:
 
     ``actualDeliveryTime.day`` (``%Y-%m-%d``) is the only component either
     source client uses — no time-of-day has been observed, so none is
-    synthesised (BUILD_PLAN.md §4).
+    synthesised.
     """
     actual_time = (raw.get("actualDeliveryInformation") or {}).get("actualDeliveryTime")
     if not isinstance(actual_time, dict):
@@ -329,7 +325,7 @@ def _delivered_at(raw: dict) -> str | None:
 def _planned_window(raw: dict) -> tuple[str | None, str | None]:
     """Return ``(planned_from, planned_to)`` from ``expectedDeliveryTimeRange``.
 
-    Only the ``time1``/``time2`` shape (BUILD_PLAN.md §4) is implemented —
+    Only the ``time1``/``time2`` shape is implemented —
     the alternative ``{date, startTime, endTime}`` shape, or a plain string,
     both leave the window ``None`` without raising. Any non-null value fires
     the one-shot first-sighting warning regardless of shape, since even a
@@ -362,7 +358,7 @@ def normalize_parcel(
     hub's default (``entry.options[CONF_POSTAL_CODE]``). Neither is read from
     ``raw`` — the deep link needs both regardless of whether the parcel was
     found, and the tracked barcode is treated as the source of truth over any
-    echoed ``itemCode`` (BUILD_PLAN.md §4). ``raw`` may be an empty dict for a
+    echoed ``itemCode``. ``raw`` may be an empty dict for a
     tracked-but-not-yet-found pair — every lookup below already tolerates that.
     """
     active_step = raw.get("activeStep") or {}
@@ -373,7 +369,7 @@ def normalize_parcel(
     # report `delivered` (mailbox drop) or `delivered_kariboo_point` (pickup
     # point) depending on method, and an unmapped method-suffixed code must
     # still report delivered. actualDeliveryInformation is the only reliable
-    # signal (BUILD_PLAN.md §4) — this rule must survive any refactor.
+    # signal — this rule must survive any refactor.
     delivered = bool(
         (raw.get("actualDeliveryInformation") or {}).get("actualDeliveryTime")
     )

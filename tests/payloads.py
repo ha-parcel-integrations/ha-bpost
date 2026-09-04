@@ -1,7 +1,6 @@
 """Sample bpost ``track/items`` payloads shared by the test modules.
 
-``payload: reconstructed`` (BUILD_PLAN.md §0.3) — every shape below is read
-off a third-party client's source, not off this repo's own wire. Keep them in
+Every shape below is read off a third-party client's source, not off this repo's own wire. Keep them in
 one module rather than inline in each test — when the payload shape turns out
 to be different from what was assumed, there is then exactly one place to fix.
 """
@@ -102,7 +101,7 @@ def delivered_item(barcode: str = BARCODE) -> dict:
 def delivered_kariboo_item(barcode: str = BARCODE) -> dict:
     """A parcel delivered to a Kariboo pickup point — a delivery *method*, not
     a still-awaiting-collection state; ``status`` maps to ``delivered`` here,
-    same as a mailbox drop (BUILD_PLAN.md §3)."""
+    same as a mailbox drop."""
     return item(
         barcode,
         active_step_name="delivered_kariboo_point",
@@ -129,7 +128,7 @@ def delivered_unknown_method_item(barcode: str = BARCODE) -> dict:
     """Delivered via a completely unseen code that still prefix-matches "delivered".
 
     Exercises the "delivered must never be derived from the status name"
-    rule (BUILD_PLAN.md §4/§7): even though this code is not in STATUS_MAP
+    rule: even though this code is not in STATUS_MAP
     verbatim, ``delivered`` must read True from
     ``actualDeliveryInformation`` regardless of what ``status`` resolves to.
     """

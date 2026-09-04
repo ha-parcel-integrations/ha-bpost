@@ -35,8 +35,7 @@ KNOWN_CAPABILITIES = frozenset(
     {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
 )
 
-# bpost's public tracker (see BUILD_PLAN.md §4, folded in after the build):
-# no weight/dimensions on this route, ever; pickup_point is deliberately never
+# bpost's public tracker: no weight/dimensions on this route, ever; pickup_point is deliberately never
 # populated (deliveryPoint's contents are unconfirmed — see parcels.py); the
 # ETA window and event history are implemented, and the deep link is always
 # built (it needs no carrier data beyond the barcode/postcode the user
@@ -90,9 +89,9 @@ DEFAULT_DELIVERED_FILTER_AMOUNT = 7
 # Dynamic, status-driven polling — unconditional across the suite, no
 # user-facing interval option (see scaffold/CLAUDE.md's "Dynamic polling"
 # section for the full algorithm and the reasoning behind it). bpost's own
-# rate limit is unmeasured (BUILD_PLAN.md §1: "rate_limit: unknown" — the
-# 15-minute-while-active cadence a community client ships is a shipped
-# datapoint, not a measured limit), so this stays at the suite defaults
+# rate limit is unmeasured (the 15-minute-while-active cadence a community
+# client ships is a shipped datapoint, not a measured limit), so this stays
+# at the suite defaults
 # rather than a carrier-specific override.
 #
 # Quiet window: no polling between these local hours except the two anchors
