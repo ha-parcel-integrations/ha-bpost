@@ -73,6 +73,11 @@ TRACKING_URL = (
 # a second hub for it, rather than supplying a postcode per parcel.
 CONF_PARCELS = "parcels"
 CONF_BARCODE = "barcode"
+
+# Standard service field name shared by every parcel-suite carrier. The
+# stored options key above stays bpost's own vocabulary; only the public
+# service surface is suite-standard, mirroring GLS.
+CONF_TRACKING_CODE = "tracking_code"
 CONF_POSTAL_CODE = "postal_code"
 
 # Delivered-parcels retention: keep delivered parcels visible for the last N

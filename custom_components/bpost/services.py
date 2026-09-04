@@ -3,11 +3,11 @@
 `bpost.track_parcel` / `bpost.untrack_parcel` let you add or remove a tracked
 parcel without opening the integration options — so a Lovelace button can
 start tracking a parcel straight from a dashboard. Format-only validation
-(non-empty barcode), deliberately not a live lookup — a service call must not
+(non-empty tracking code), deliberately not a live lookup — a service call must not
 block on a network round-trip.
 
 A hub is scoped to one postal code (config_flow.py's hub-per-postcode model,
-mirroring GLS), so tracking normally needs only a barcode — the postal code
+mirroring GLS), so tracking normally needs only a ``tracking_code`` — the postal code
 is implicit from the hub. ``track_parcel`` keeps an optional ``postal_code``
 field to pick *which* hub when more than one is configured (e.g. a household
 that also receives parcels addressed to a second postcode), the same escape
@@ -22,7 +22,13 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
 from .config_flow import normalize_barcode, normalize_postal_code, valid_barcode
-from .const import CONF_BARCODE, CONF_PARCELS, CONF_POSTAL_CODE, DOMAIN
+from .const import (
+    CONF_BARCODE,
+    CONF_PARCELS,
+    CONF_POSTAL_CODE,
+    CONF_TRACKING_CODE,
+    DOMAIN,
+)
 from .parcels import parcel_key
 
 SERVICE_TRACK_PARCEL = "track_parcel"
@@ -30,11 +36,11 @@ SERVICE_UNTRACK_PARCEL = "untrack_parcel"
 
 _TRACK_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_BARCODE): cv.string,
+        vol.Required(CONF_TRACKING_CODE): cv.string,
         vol.Optional(CONF_POSTAL_CODE): cv.string,
     }
 )
-_UNTRACK_SCHEMA = vol.Schema({vol.Required(CONF_BARCODE): cv.string})
+_UNTRACK_SCHEMA = vol.Schema({vol.Required(CONF_TRACKING_CODE): cv.string})
 
 
 def _resolve_entry(hass: HomeAssistant, postal_code: str | None) -> ConfigEntry:
@@ -66,7 +72,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         return
 
     async def _track(call: ServiceCall) -> None:
-        barcode = normalize_barcode(call.data[CONF_BARCODE])
+        barcode = normalize_barcode(call.data[CONF_TRACKING_CODE])
         if not valid_barcode(barcode):
             raise ServiceValidationError("A bpost barcode is required")
         entry = _resolve_entry(hass, call.data.get(CONF_POSTAL_CODE))
@@ -81,7 +87,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def _untrack(call: ServiceCall) -> None:
-        barcode = normalize_barcode(call.data[CONF_BARCODE])
+        barcode = normalize_barcode(call.data[CONF_TRACKING_CODE])
         target_key = parcel_key(barcode)
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:

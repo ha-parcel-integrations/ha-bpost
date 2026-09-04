@@ -1,6 +1,6 @@
 track_parcel:
   fields:
-    barcode:
+    tracking_code:
       required: true
       example: "323456789012"
       selector:
@@ -13,7 +13,7 @@ track_parcel:
 
 untrack_parcel:
   fields:
-    barcode:
+    tracking_code:
       required: true
       example: "323456789012"
       selector:

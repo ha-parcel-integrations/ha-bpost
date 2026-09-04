@@ -108,7 +108,7 @@ async def test_options_parcels_add(hass):
     result = await _open_menu_step(hass, entry, "parcels")
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"barcodes": [BARCODE]}
+        result["flow_id"], {"tracking_codes": [BARCODE]}
     )
 
     assert result["type"] == "create_entry"
@@ -123,7 +123,7 @@ async def test_options_parcels_remove(hass):
     result = await _open_menu_step(hass, entry, "parcels")
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"barcodes": [BARCODE]}
+        result["flow_id"], {"tracking_codes": [BARCODE]}
     )
 
     assert result["type"] == "create_entry"
@@ -136,7 +136,7 @@ async def test_options_parcels_deduplicates_and_normalizes(hass):
     result = await _open_menu_step(hass, entry, "parcels")
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"barcodes": [f"  {BARCODE}  ", BARCODE, ""]}
+        result["flow_id"], {"tracking_codes": [f"  {BARCODE}  ", BARCODE, ""]}
     )
 
     assert result["data"][CONF_PARCELS] == [_parcel()]

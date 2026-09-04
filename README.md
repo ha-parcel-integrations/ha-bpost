@@ -136,8 +136,8 @@ Every payload is the full normalised parcel plus the hub's `device_id`. Events a
 
 | Service | Fields | Description |
 |---|---|---|
-| `bpost.track_parcel` | `barcode`, `postal_code` (optional, to pick a hub when more than one is set up) | Start tracking a parcel |
-| `bpost.untrack_parcel` | `barcode` | Stop tracking a parcel |
+| `bpost.track_parcel` | `tracking_code` (the barcode), `postal_code` (optional, to pick a hub when more than one is set up) | Start tracking a parcel |
+| `bpost.untrack_parcel` | `tracking_code` (the barcode) | Stop tracking a parcel |
 
 ## Examples
 

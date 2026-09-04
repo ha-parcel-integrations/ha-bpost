@@ -2,8 +2,8 @@
 #
 # A bpost hub is scoped to one delivery postal code (set once, at setup), so
 # tracking a parcel normally needs only its barcode:
-#   - bpost.track_parcel   (barcode, optional postal_code)
-#   - bpost.untrack_parcel (barcode)
+#   - bpost.track_parcel   (tracking_code, optional postal_code)
+#   - bpost.untrack_parcel (tracking_code)
 #
 # The optional postal_code field only matters if you have more than one
 # bpost hub (e.g. a second delivery address) — it picks which hub to add the
@@ -34,7 +34,7 @@ bpost_track_new_parcel:
         {{ states('input_text.bpost_new_parcel_barcode') | trim != '' }}
     - action: bpost.track_parcel
       data:
-        barcode: "{{ states('input_text.bpost_new_parcel_barcode') | trim }}"
+        tracking_code: "{{ states('input_text.bpost_new_parcel_barcode') | trim }}"
     - action: input_text.set_value
       target:
         entity_id: input_text.bpost_new_parcel_barcode

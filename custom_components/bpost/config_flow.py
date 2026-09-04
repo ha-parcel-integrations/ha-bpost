@@ -155,7 +155,7 @@ class BpostOptionsFlowHandler(OptionsFlow):
         """Show and handle the complete tracked-barcode list."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            codes = _clean_barcodes(user_input.get("barcodes"))
+            codes = _clean_barcodes(user_input.get("tracking_codes"))
             if any(not valid_barcode(code) for code in codes):
                 errors["base"] = "invalid_barcode"
             else:
@@ -171,7 +171,7 @@ class BpostOptionsFlowHandler(OptionsFlow):
         ]
         schema = vol.Schema(
             {
-                vol.Optional("barcodes"): selector.TextSelector(
+                vol.Optional("tracking_codes"): selector.TextSelector(
                     selector.TextSelectorConfig(multiple=True)
                 )
             }
@@ -179,7 +179,7 @@ class BpostOptionsFlowHandler(OptionsFlow):
         return self.async_show_form(
             step_id="parcels",
             data_schema=self.add_suggested_values_to_schema(
-                schema, {"barcodes": current_codes}
+                schema, {"tracking_codes": current_codes}
             ),
             errors=errors,
         )

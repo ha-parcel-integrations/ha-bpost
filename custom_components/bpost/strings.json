@@ -32,10 +32,10 @@
       "parcels": {
         "title": "Parcels",
         "data": {
-          "barcodes": "Tracked barcodes"
+          "tracking_codes": "Tracked barcodes"
         },
         "data_description": {
-          "barcodes": "The bpost barcode(s), as printed on the shipping confirmation or the missed-delivery card. Uses this hub's postal code."
+          "tracking_codes": "The bpost barcode(s), as printed on the shipping confirmation or the missed-delivery card. Uses this hub's postal code."
         }
       },
       "settings": {
@@ -64,7 +64,7 @@
       "name": "Track parcel",
       "description": "Start tracking a parcel by its bpost barcode.",
       "fields": {
-        "barcode": {
+        "tracking_code": {
           "name": "Barcode",
           "description": "The bpost barcode."
         },
@@ -78,7 +78,7 @@
       "name": "Untrack parcel",
       "description": "Stop tracking a parcel by its bpost barcode.",
       "fields": {
-        "barcode": {
+        "tracking_code": {
           "name": "Barcode",
           "description": "The bpost barcode to stop tracking."
         }

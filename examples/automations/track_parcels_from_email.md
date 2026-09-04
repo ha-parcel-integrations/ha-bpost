@@ -16,7 +16,7 @@ new e-mail ──imap_content──▶ automation ──▶ regex match? ──�
 
 ## Prerequisites
 
-- This integration, with a bpost hub already set up (it holds the delivery postal code) and the `bpost.track_parcel` action available (field `barcode`).
+- This integration, with a bpost hub already set up (it holds the delivery postal code) and the `bpost.track_parcel` action available (field `tracking_code`).
 - The core **IMAP** integration (ships with Home Assistant, no HACS needed).
 - *(Optional but recommended)* an **AI Task** entity (e.g. Anthropic/Claude, Google, OpenAI) for the fallback path. Without it, simply delete the `else:` block — the regex path works standalone.
 

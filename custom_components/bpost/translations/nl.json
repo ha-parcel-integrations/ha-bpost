@@ -32,10 +32,10 @@
       "parcels": {
         "title": "Pakketten",
         "data": {
-          "barcodes": "Gevolgde barcodes"
+          "tracking_codes": "Gevolgde barcodes"
         },
         "data_description": {
-          "barcodes": "De bpost-barcode(s), zoals vermeld op de verzendbevestiging of het niet-thuiskaartje. Gebruikt de postcode van deze hub."
+          "tracking_codes": "De bpost-barcode(s), zoals vermeld op de verzendbevestiging of het niet-thuiskaartje. Gebruikt de postcode van deze hub."
         }
       },
       "settings": {
@@ -64,7 +64,7 @@
       "name": "Pakket volgen",
       "description": "Begin met het volgen van een bpost-pakket via de barcode.",
       "fields": {
-        "barcode": {
+        "tracking_code": {
           "name": "Barcode",
           "description": "De bpost-barcode."
         },
@@ -78,7 +78,7 @@
       "name": "Pakket niet meer volgen",
       "description": "Stop met het volgen van een bpost-pakket via de barcode.",
       "fields": {
-        "barcode": {
+        "tracking_code": {
           "name": "Barcode",
           "description": "De bpost-barcode om niet meer te volgen."
         }

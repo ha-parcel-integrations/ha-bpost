@@ -32,10 +32,10 @@
       "parcels": {
         "title": "Colis",
         "data": {
-          "barcodes": "Codes-barres suivis"
+          "tracking_codes": "Codes-barres suivis"
         },
         "data_description": {
-          "barcodes": "Le(s) code(s)-barres bpost, imprimé(s) sur la confirmation d'expédition ou l'avis de passage. Utilise le code postal de ce hub."
+          "tracking_codes": "Le(s) code(s)-barres bpost, imprimé(s) sur la confirmation d'expédition ou l'avis de passage. Utilise le code postal de ce hub."
         }
       },
       "settings": {
@@ -64,7 +64,7 @@
       "name": "Suivre un colis",
       "description": "Commencer à suivre un colis via son code-barres bpost.",
       "fields": {
-        "barcode": {
+        "tracking_code": {
           "name": "Code-barres",
           "description": "Le code-barres bpost."
         },
@@ -78,7 +78,7 @@
       "name": "Ne plus suivre un colis",
       "description": "Arrêter de suivre un colis via son code-barres bpost.",
       "fields": {
-        "barcode": {
+        "tracking_code": {
           "name": "Code-barres",
           "description": "Le code-barres bpost à ne plus suivre."
         }

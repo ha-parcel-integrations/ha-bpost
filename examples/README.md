@@ -15,8 +15,8 @@ All examples assume a single bpost hub. Adjust entity IDs to match yours.
 
 | Service | Description |
 |---|---|
-| `bpost.track_parcel` | Start tracking a parcel (`barcode`, optional `postal_code` to pick a hub when more than one is set up). |
-| `bpost.untrack_parcel` | Stop tracking a parcel (`barcode`). |
+| `bpost.track_parcel` | Start tracking a parcel (`tracking_code` — the barcode — plus an optional `postal_code` to pick a hub when more than one is set up). |
+| `bpost.untrack_parcel` | Stop tracking a parcel (`tracking_code`). |
 
 ## Events used in the examples
 

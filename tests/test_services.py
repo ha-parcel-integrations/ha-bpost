@@ -9,6 +9,7 @@ from custom_components.bpost.const import (
     CONF_BARCODE,
     CONF_PARCELS,
     CONF_POSTAL_CODE,
+    CONF_TRACKING_CODE,
     DOMAIN,
 )
 
@@ -41,7 +42,7 @@ async def test_track_parcel_adds_to_options(hass):
         await hass.services.async_call(
             DOMAIN,
             "track_parcel",
-            {CONF_BARCODE: BARCODE},
+            {CONF_TRACKING_CODE: BARCODE},
             blocking=True,
         )
         await hass.async_block_till_done()
@@ -55,7 +56,7 @@ async def test_track_parcel_trims_whitespace(hass):
         await hass.services.async_call(
             DOMAIN,
             "track_parcel",
-            {CONF_BARCODE: f"  {BARCODE}  "},
+            {CONF_TRACKING_CODE: f"  {BARCODE}  "},
             blocking=True,
         )
         await hass.async_block_till_done()
@@ -69,7 +70,7 @@ async def test_track_parcel_rejects_blank_barcode(hass):
         await hass.services.async_call(
             DOMAIN,
             "track_parcel",
-            {CONF_BARCODE: "   "},
+            {CONF_TRACKING_CODE: "   "},
             blocking=True,
         )
 
@@ -81,7 +82,7 @@ async def test_track_parcel_duplicate_is_noop(hass):
             await hass.services.async_call(
                 DOMAIN,
                 "track_parcel",
-                {CONF_BARCODE: BARCODE},
+                {CONF_TRACKING_CODE: BARCODE},
                 blocking=True,
             )
             await hass.async_block_till_done()
@@ -95,7 +96,7 @@ async def test_untrack_parcel_removes_from_options(hass):
         await hass.services.async_call(
             DOMAIN,
             "untrack_parcel",
-            {CONF_BARCODE: BARCODE},
+            {CONF_TRACKING_CODE: BARCODE},
             blocking=True,
         )
         await hass.async_block_till_done()
@@ -109,7 +110,7 @@ async def test_untrack_unknown_barcode_is_noop(hass):
         await hass.services.async_call(
             DOMAIN,
             "untrack_parcel",
-            {CONF_BARCODE: "999999999999"},
+            {CONF_TRACKING_CODE: "999999999999"},
             blocking=True,
         )
         await hass.async_block_till_done()
@@ -133,7 +134,7 @@ async def test_track_parcel_multiple_hubs_requires_postal_code(hass):
             await hass.services.async_call(
                 DOMAIN,
                 "track_parcel",
-                {CONF_BARCODE: BARCODE},
+                {CONF_TRACKING_CODE: BARCODE},
                 blocking=True,
             )
 
@@ -146,7 +147,7 @@ async def test_track_parcel_multiple_hubs_postal_code_selects_target(hass):
         await hass.services.async_call(
             DOMAIN,
             "track_parcel",
-            {CONF_BARCODE: BARCODE, CONF_POSTAL_CODE: OTHER_POSTAL_CODE},
+            {CONF_TRACKING_CODE: BARCODE, CONF_POSTAL_CODE: OTHER_POSTAL_CODE},
             blocking=True,
         )
         await hass.async_block_till_done()
@@ -163,7 +164,7 @@ async def test_track_parcel_unknown_postal_code_raises(hass):
             await hass.services.async_call(
                 DOMAIN,
                 "track_parcel",
-                {CONF_BARCODE: BARCODE, CONF_POSTAL_CODE: "0000"},
+                {CONF_TRACKING_CODE: BARCODE, CONF_POSTAL_CODE: "0000"},
                 blocking=True,
             )
 
@@ -178,7 +179,7 @@ async def test_untrack_parcel_removes_from_whichever_hub_tracks_it(hass):
         await hass.services.async_call(
             DOMAIN,
             "untrack_parcel",
-            {CONF_BARCODE: BARCODE},
+            {CONF_TRACKING_CODE: BARCODE},
             blocking=True,
         )
         await hass.async_block_till_done()
