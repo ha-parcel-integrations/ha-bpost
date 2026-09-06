@@ -47,20 +47,47 @@ repo)** — the endpoint URLs, the full request/response envelope, the
 reconstruction this build was generated from. Do not duplicate them here;
 this section is integration-level decisions only.
 
-**`payload: reconstructed` — no real bpost parcel has confirmed this repo's
-own field map yet.** Every lookup in `parcels.py` was read off a third-party
-client's source, not off this repo's own wire, so this shipped pre-1.0 (0.x)
-with the one-shot WARNING net of `const.STATUS_MAP`/`parcels.py` active,
-matching the Correos and DPD-DE precedent in this suite. Do not tag `1.0.0`
-until one consented real barcode + postal code confirms: the envelope shape,
-the `expectedDeliveryTimeRange` shape (`time1`/`time2` is implemented;
-`{date, startTime, endTime}` and a plain string both degrade to `None`
-without raising), `actualDeliveryTime`'s exact shape, and `deliveryPoint`'s
-contents. `parcels.py`'s `_warn_eta_first_sighting` and
+**`payload: reconstructed` — still true; two real bpost parcels (2026-09-03,
+2026-09-06) confirmed part of the field map, not all of it.** Every lookup in
+`parcels.py` was originally read off a third-party client's source, not off
+this repo's own wire, so this shipped pre-1.0 (0.x) with the one-shot
+WARNING net of `const.STATUS_MAP`/`parcels.py` active, matching the Correos
+and DPD-DE precedent in this suite. **Confirmed so far:** the envelope
+shape, `actualDeliveryTime`'s exact shape (date-only, no time component),
+`delivered`/`delivered_at`, the `history`/`events[]` shape (newest-first,
+each entry with no status code of its own), and `deliveryPoint: null` for a
+home delivery (three samples, all home deliveries, all null) — no new
+`activeStep.name` code beyond `delivered`/`out_for_delivery_byCar` has been
+seen. **Still open, and no in-transit or pickup-point sample has been
+available to close them:** the `expectedDeliveryTimeRange` shape
+(`time1`/`time2` vs. `{date, startTime, endTime}` vs. a plain string —
+`time1`/`time2` is implemented, the others degrade to `None` without
+raising), and `deliveryPoint`'s actual (non-`null`) contents.
+`parcels.py`'s `_warn_eta_first_sighting` and
 `_warn_delivery_point_first_sighting` fire the moment a real parcel settles
 either question — treat either warning firing as the trigger to re-open this
 question, confirm the shape, and only then move `payload` to `confirmed` and
-consider a `1.0.0`.
+consider a `1.0.0`. Help-wanted issues are open on this repo for both gaps
+(2026-09-06) rather than holding the gate open indefinitely; the private
+`carrier-research/bpost/api/BUILD_PLAN.md` this section was folded from has
+been deleted, per this suite's normal deleted-on-release rule.
+
+**Domain collision with the HACS default store's `bpost` — accepted, not
+resolved (decided 2026-09-02).**
+`myTselectionPublic/homeassistant-bpost-integration` already ships HA domain
+`bpost` in the HACS default store (`therealabradolf/ha-bpost-tracker` ships
+`bpost_tracker`, no collision there). HA refuses to load two custom
+components sharing one domain if a user has both installed — accepted as-is:
+a user who hits it chooses which integration to keep. **Do not rename this
+repo's domain to dodge the collision without a fresh maintainer decision** —
+`manifest.json`'s `bpost` domain is deliberate, not a placeholder.
+
+**Neither community source integration was approached before this repo was
+built (decided 2026-09-02).** Both `therealabradolf/ha-bpost-tracker` and
+`myTselectionPublic/homeassistant-bpost-integration` are MIT and were read as
+sources for the field map; per a one-off maintainer decision this repo skipped
+the courteous outreach step other adoptions in this suite have used. No
+attribution beyond what the private research doc already records.
 
 **Endpoint: three keyless routes on `track.bpost.cloud`, no headers at all.**
 `GET /track/items?itemIdentifier=<barcode>&postalCode=<postal_code>` is the
