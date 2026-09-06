@@ -380,16 +380,22 @@ def test_normalize_pending_placeholder_for_not_found():
     assert parcel["history"] is None
 
 
-def test_normalize_keeps_raw_allowlist_only():
-    """§4: raw is an allowlist, not the full payload."""
+def test_normalize_keeps_raw_verbatim():
+    """raw is the untouched payload, like every other suite carrier — not an
+    allowlist. A field this repo doesn't know about yet must still survive,
+    so a future bpost change (or the still-open ETA/deliveryPoint shape) is
+    visible in diagnostics rather than silently dropped."""
     raw = active_item()
-    raw["someUnexpectedInternalField"] = "must never leak"
+    raw["someUnexpectedInternalField"] = "must survive"
     result = _normalize(raw)["raw"]
-    assert "someUnexpectedInternalField" not in result
+    assert result is raw
+    assert result["someUnexpectedInternalField"] == "must survive"
     assert result["shipmentType"] == "PARCEL"
     assert result["productCategory"] == "NATIONAL"
     assert result["deliveryPreferenceType"] == "STANDARD"
-    assert result["activeStepLabel"] == "Will be delivered today"
+    assert result["activeStep"]["label"]["main"]["EN"] == "Will be delivered today"
+    assert result["senderCommercialName"] == "Example Shop"
+    assert result["events"] == raw["events"]
 
 
 def test_normalize_raw_includes_dearrayed_round_status_when_present():

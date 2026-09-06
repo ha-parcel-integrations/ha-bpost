@@ -151,21 +151,32 @@ instead). This mirrors BoxNow Greece's `pickup`/`pickup_point` handling
 exactly, for the same reason: a delivery-method code is not a pickup-pending
 state, and an unconfirmed field is not populated from a guess.
 
-**`raw` is an allowlist, not the full payload.** `normalize_parcel` copies
-through only `shipmentType`, `productCategory`, `deliveryPreferenceType`,
-`deliveryPoint`, the localised `activeStepLabel` (an attribute only — never
-the canonical `status`), and — when the enrichment call fired — the
-dearrayed `itemOnRoundStatus` values. Everything else in the raw response
-(including any field a future bpost change might add) never reaches `raw`.
+**`raw` is the untouched payload, like every other suite carrier —
+corrected 2026-09-06.** An earlier revision (through 0.10.0) copied through
+only an allowlist of five fields, which meant a real diagnostics export
+never actually carried the `expectedDeliveryTimeRange`/`deliveryPoint` shape
+the §0.3 gate needs, defeating the point of asking a user for one. Two real
+parcels (2026-09-06, both home deliveries) confirmed `deliveryPoint: null`
+again but could not settle the ETA-window shape, either question — this
+allowlist is exactly why: `raw` at the time only ever showed the five
+curated keys, never the field that would have answered it. `normalize_parcel`
+now returns `raw` verbatim.
 
-**Diagnostics: `raw_status` is deliberately over-redacted.** The canonical
-top-level `raw_status` field (`activeStep.name`, no PII) and each
-`history[]` entry's own `raw_status` (a localised event *description*,
+**Diagnostics: `raw_status` and `description` are deliberately over-redacted.**
+The canonical top-level `raw_status` field (`activeStep.name`, no PII) and
+each `history[]` entry's own `raw_status` (a localised event *description*,
 potentially PII) share the same key name, and `async_redact_data` redacts by
 key, not by position — it cannot tell the two apart. `raw_status` is in
 `diagnostics.TO_REDACT`, mirroring Ceska Posta's `id` over-redaction
-precedent. The one-shot WARNING log lines (not diagnostics) remain the
-channel that carries `activeStep.name` in the clear for status-map reports.
+precedent. Now that `raw` is verbatim, the same event-description text
+reappears under different key names at
+`raw["events"][i]["key"]["<LANG>"]["description"]` — `"description"` is in
+`TO_REDACT` for exactly that. `raw["sender"]` (a nested dict, unlike the
+canonical top-level `sender` string) is caught by the existing `"sender"`
+key already in `TO_REDACT` — `async_redact_data` blanks it wholesale, no
+separate entry needed. The one-shot WARNING log lines (not diagnostics)
+remain the channel that carries `activeStep.name` in the clear for
+status-map reports.
 
 **No camera entity.** The delivery-photo route
 (`GET /track/asset?refId=...`, base64-*text* body) is documented in the

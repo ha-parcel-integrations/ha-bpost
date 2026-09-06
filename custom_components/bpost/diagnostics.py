@@ -21,6 +21,14 @@ from . import BpostConfigEntry
 # cannot tell them apart. The one-shot WARNING log lines (not diagnostics)
 # remain the channel that carries activeStep.name in the clear for mapping
 # unrecognised codes.
+#
+# "raw" is the untouched API response (like every other suite carrier), not
+# an allowlist — so the same event-description text that "raw_status" blanks
+# in the canonical `history` list reappears, under different key names, at
+# `raw["events"][i]["key"]["<LANG>"]["description"]`. "description" below
+# blanks that. "sender" already redacts `raw["sender"]` wholesale (a nested
+# dict under that same key), which is why `sender.name` needs no entry of
+# its own.
 TO_REDACT = {
     # canonical fields we publish ourselves
     "barcode",
@@ -34,6 +42,8 @@ TO_REDACT = {
     "itemCode",
     "postalCode",
     "senderCommercialName",
+    # events[].key.<LANG>.description — see the note above
+    "description",
     # the delivery photo is a fetch token for the user's own doorstep
     "safeplacePicture",
     "refId",

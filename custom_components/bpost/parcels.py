@@ -360,6 +360,9 @@ def normalize_parcel(
     found, and the tracked barcode is treated as the source of truth over any
     echoed ``itemCode``. ``raw`` may be an empty dict for a
     tracked-but-not-yet-found pair — every lookup below already tolerates that.
+    The canonical ``raw`` key is this same dict passed through verbatim, like
+    every other suite carrier — see ``diagnostics.TO_REDACT`` for what gets
+    blanked before it can reach a public issue.
     """
     active_step = raw.get("activeStep") or {}
     status_code = active_step.get("name")
@@ -387,19 +390,6 @@ def normalize_parcel(
 
     sender = raw.get("senderCommercialName") or (raw.get("sender") or {}).get("name")
 
-    label_main = (active_step.get("label") or {}).get("main") or {}
-    localized_label = label_main.get(lang.upper()) or label_main.get("EN")
-
-    raw_out: dict[str, Any] = {
-        "shipmentType": raw.get("shipmentType"),
-        "productCategory": raw.get("productCategory"),
-        "deliveryPreferenceType": raw.get("deliveryPreferenceType"),
-        "deliveryPoint": delivery_point,
-        "activeStepLabel": localized_label,
-    }
-    if "itemOnRoundStatus" in raw:
-        raw_out["itemOnRoundStatus"] = raw["itemOnRoundStatus"]
-
     return {
         "carrier": "bpost",
         "barcode": barcode,
@@ -419,7 +409,7 @@ def normalize_parcel(
         "history": (
             build_history(raw.get("events"), lang=lang) if include_history else None
         ),
-        "raw": raw_out,
+        "raw": raw,
     }
 
 

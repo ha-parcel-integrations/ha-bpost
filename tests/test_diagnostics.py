@@ -59,6 +59,48 @@ async def test_diagnostics_redacts_and_counts(hass):
     assert result["incoming"][0]["raw"]["shipmentType"] == "PARCEL"
 
 
+async def test_diagnostics_redacts_raw_sender_and_event_descriptions(hass):
+    """raw is the untouched payload now (not an allowlist) — the sender name
+    and event-description text it carries must still never reach a public
+    issue."""
+    entry = MagicMock()
+    entry.options = {"parcels": [{"barcode": "323456789012", "postal_code": "1000"}]}
+    entry.runtime_data.coordinator.current_tier_minutes = None
+    entry.runtime_data.coordinator.update_interval = None
+    entry.runtime_data.coordinator.data = [
+        {
+            "barcode": "323456789012",
+            "sender": "Example Shop",
+            "receiver": None,
+            "status": "out_for_delivery",
+            "raw_status": "out_for_delivery_byCar",
+            "url": "https://track.bpost.cloud/btr/web/#/search?lang=en&itemCode=323456789012&postalCode=1000",
+            "raw": {
+                "shipmentType": "PARCEL",
+                "sender": {"name": "Jan Janssens"},
+                "events": [
+                    {
+                        "date": "2026-04-29",
+                        "time": "08:46",
+                        "key": {"EN": {"description": "Onderweg naar Jan Janssens"}},
+                    }
+                ],
+            },
+            "history": [],
+        }
+    ]
+    entry.runtime_data.coordinator.delivered = []
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    raw = result["incoming"][0]["raw"]
+    assert raw["sender"] == "**REDACTED**"
+    assert raw["events"][0]["key"]["EN"]["description"] == "**REDACTED**"
+    # non-identifying fields survive
+    assert raw["shipmentType"] == "PARCEL"
+    assert raw["events"][0]["date"] == "2026-04-29"
+
+
 async def test_diagnostics_reports_suspended_polling(hass):
     """update_interval None (Section 2.1's full stop) must be visible, not just absent."""
     entry = MagicMock()
