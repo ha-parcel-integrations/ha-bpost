@@ -88,7 +88,7 @@ The regex matches a prefix followed by alphanumerics:
 
 bpost publishes no fixed barcode format, so this anchors on the common
 UPU-style shape (two letters, 8-11 digits, two letters — e.g.
-`CE642846115BE`) rather than guessing a bpost-specific prefix. The
+`XY000000000BE`) rather than guessing a bpost-specific prefix. The
 integration itself accepts any non-empty barcode, so matching *that*
 broadly against e-mail text would hit every order number in the mail —
 hence the narrower pattern here. **If your mails carry a different shape,
@@ -117,7 +117,7 @@ Fire a fake event and watch the automation trace (Settings → Automations → y
 curl -X POST -H "Authorization: Bearer $HA_TOKEN" -H "Content-Type: application/json" \
   http://YOUR_HA:8123/api/events/imap_content \
   -d '{"sender":"noreply@bpostshipping.com","subject":"Your parcel is on its way",
-       "text":"Tracking code: CE642846115BE","initial":true,"folder":"INBOX","username":"test"}'
+       "text":"Tracking code: XY000000000BE","initial":true,"folder":"INBOX","username":"test"}'
 ```
 
 Then `bpost.untrack_parcel` the test code afterwards. For a full end-to-end test, forward a real shipping mail to the watched mailbox — it must arrive **unread**.

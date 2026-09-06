@@ -43,7 +43,7 @@ variables:
   content: "{{ subject ~ ' ' ~ body }}"
   # bpost publishes no barcode format, so this matches a
   # generic UPU-style code — 2 letters, 8-11 digits, 2 letters (e.g.
-  # CE642846115BE) — rather than guessing a bpost-specific prefix. If your
+  # XY000000000BE) — rather than guessing a bpost-specific prefix. If your
   # mails carry a different shape, adjust the pattern below.
   bpost_codes: >-
     {{ content | regex_findall('(?<![0-9A-Za-z])[A-Z]{2}[0-9]{8,11}[A-Z]{2}(?![0-9A-Za-z])')
@@ -86,7 +86,7 @@ actions:
             Below is an e-mail. Determine whether it contains a bpost
             parcel tracking code (barcode). bpost has published no fixed
             format for it, but it commonly looks like two letters, 8-11
-            digits and two letters (e.g. CE642846115BE). Only return a real
+            digits and two letters (e.g. XY000000000BE). Only return a real
             tracking/barcode value, never an order, customer or invoice
             number. If the mail is from a different carrier, answer
             'other'. When in doubt: 'none'.
