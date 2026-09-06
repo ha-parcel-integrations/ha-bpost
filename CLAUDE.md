@@ -68,9 +68,12 @@ raising), and `deliveryPoint`'s actual (non-`null`) contents.
 either question — treat either warning firing as the trigger to re-open this
 question, confirm the shape, and only then move `payload` to `confirmed` and
 consider a `1.0.0`. Help-wanted issues are open on this repo for both gaps
-(2026-09-06) rather than holding the gate open indefinitely; the private
-`carrier-research/bpost/api/BUILD_PLAN.md` this section was folded from has
-been deleted, per this suite's normal deleted-on-release rule.
+(2026-09-06) — [#2](https://github.com/ha-parcel-integrations/ha-bpost/issues/2)
+for the ETA-window shape, [#3](https://github.com/ha-parcel-integrations/ha-bpost/issues/3)
+for `deliveryPoint`'s contents — rather than holding the gate open
+indefinitely; the private `carrier-research/bpost/api/BUILD_PLAN.md` this
+section was folded from has been deleted, per this suite's normal
+deleted-on-release rule.
 
 **Domain collision with the HACS default store's `bpost` — accepted, not
 resolved (decided 2026-09-02).**
