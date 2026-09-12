@@ -161,6 +161,12 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
         # dropping its sensor. Lives for the integration's lifetime (resets
         # on restart).
         self._raw_cache: dict[str, dict] = {}
+        # Parcel keys (see parcel_key()) confirmed delivered on a prior
+        # refresh — excluded from the fetch this cycle since a delivered
+        # parcel's payload can never change again. Keyed the same way as
+        # ``_raw_cache``, not the barcode alone. Lives for the integration's
+        # lifetime (resets on restart).
+        self._delivered_codes: set[str] = set()
         # Consecutive 429 responses across all tracked parcels, for the
         # exponential backoff in Section 3. Reset to 0 on any success.
         self._consecutive_429 = 0
@@ -186,6 +192,11 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
     def current_tier_minutes(self) -> int | None:
         """Tier minutes computed on the last refresh (diagnostics only)."""
         return self._current_tier_minutes
+
+    @property
+    def delivered_codes(self) -> set[str]:
+        """Parcel keys currently skipped from the fetch (diagnostics only)."""
+        return self._delivered_codes
 
     def _device_id(self) -> str | None:
         """Resolve (and cache) this entry's device id for event payloads."""
@@ -236,20 +247,30 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
         self._raw_cache = {
             key: raw for key, raw in self._raw_cache.items() if key in tracked_keys
         }
+        self._delivered_codes &= tracked_keys
+
+        # A delivered parcel's payload can never change again, so it is
+        # dropped from the fetch — not from ``tracked``/the options list,
+        # which stays untouched until the user removes it by hand.
+        tracked_to_fetch = [
+            (barcode, postal_code)
+            for barcode, postal_code in tracked
+            if parcel_key(barcode) not in self._delivered_codes
+        ]
 
         results = await asyncio.gather(
             *(
                 self._client.async_get_parcel(barcode, postal_code)
-                for barcode, postal_code in tracked
+                for barcode, postal_code in tracked_to_fetch
             ),
             return_exceptions=True,
         )
 
-        raws: list[tuple[str, str, dict]] = []
+        raws_by_key: dict[str, tuple[str, str, dict]] = {}
         errors = 0
         retry_afters: list[float] = []
         saw_429 = False
-        for (barcode, postal_code), result in zip(tracked, results):
+        for (barcode, postal_code), result in zip(tracked_to_fetch, results):
             key = parcel_key(barcode)
             if isinstance(result, BaseException):
                 if not isinstance(result, (BpostApiError, aiohttp.ClientError)):
@@ -262,7 +283,7 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
                 _LOGGER.warning("bpost fetch failed for %s: %s", key, result)
                 cached = self._raw_cache.get(key)
                 if cached is not None:
-                    raws.append((barcode, postal_code, cached))
+                    raws_by_key[key] = (barcode, postal_code, cached)
                 continue
 
             if result is None:
@@ -270,11 +291,21 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
                 # have it, otherwise show a pending placeholder so the user
                 # still sees the parcel they asked us to track.
                 cached = self._raw_cache.get(key)
-                raws.append((barcode, postal_code, cached if cached is not None else {}))
+                raws_by_key[key] = (barcode, postal_code, cached if cached is not None else {})
                 continue
 
             self._raw_cache[key] = result
-            raws.append((barcode, postal_code, result))
+            raws_by_key[key] = (barcode, postal_code, result)
+
+        # Keys skipped from the fetch above (already confirmed delivered) —
+        # re-add their cached payload so the delivered sensor keeps its data
+        # until the retention filter drops it.
+        for barcode, postal_code in tracked:
+            key = parcel_key(barcode)
+            if key in self._delivered_codes:
+                cached = self._raw_cache.get(key)
+                if cached is not None:
+                    raws_by_key[key] = (barcode, postal_code, cached)
 
         if saw_429:
             # A 429 anywhere in this batch means the whole poll backs off —
@@ -292,23 +323,31 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
             raise UpdateFailed("bpost rate-limited (429)", retry_after=retry_after)
         self._consecutive_429 = 0
 
-        if tracked and errors == len(tracked) and not raws:
+        if tracked_to_fetch and errors == len(tracked_to_fetch) and not raws_by_key:
             raise UpdateFailed("bpost unreachable for all tracked parcels")
 
         include_history = self._include_history
         lang = resolve_lang(self.hass.config.language)
-        normalized = [
-            normalize_parcel(
-                raw,
-                barcode=barcode,
-                postal_code=postal_code,
-                include_history=include_history,
-                lang=lang,
+        entries = [
+            (
+                key,
+                normalize_parcel(
+                    raw,
+                    barcode=barcode,
+                    postal_code=postal_code,
+                    include_history=include_history,
+                    lang=lang,
+                ),
             )
-            for barcode, postal_code, raw in raws
+            for key, (barcode, postal_code, raw) in raws_by_key.items()
         ]
-        active = [parcel for parcel in normalized if not parcel["delivered"]]
-        delivered = [parcel for parcel in normalized if parcel["delivered"]]
+        active = [parcel for _, parcel in entries if not parcel["delivered"]]
+        delivered = [parcel for _, parcel in entries if parcel["delivered"]]
+        # Rebuilt fresh from this cycle's data — a key whose payload just
+        # flipped to delivered is skipped starting next cycle; one that
+        # somehow un-delivers (should not happen, but the fetch list must
+        # never permanently drop a key) rejoins it automatically.
+        self._delivered_codes = {key for key, parcel in entries if parcel["delivered"]}
 
         self.delivered = apply_delivered_filter(
             sort_parcels_by_ts(delivered, "delivered_at", descending=True),
@@ -332,9 +371,9 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
         }
 
         # Only stamp the diagnostic timestamp when at least one fetch actually
-        # succeeded (or nothing is tracked) — a poll served entirely from cache
-        # must not present itself as a successful update.
-        if not tracked or errors < len(tracked):
+        # succeeded (or nothing needed fetching) — a poll served entirely from
+        # cache must not present itself as a successful update.
+        if not tracked_to_fetch or errors < len(tracked_to_fetch):
             self.last_success_time = datetime.now(timezone.utc)
 
         now = dt_util.now()

@@ -198,10 +198,13 @@ async def test_update_fetches_parcels_concurrently(hass):
 
 
 async def test_cache_only_poll_does_not_stamp_last_success(hass):
+    # Must still be active (not delivered) — a delivered barcode is skipped
+    # from the fetch entirely from the next cycle on, which is covered
+    # separately by test_delivered_code_skipped_from_fetch.
     entry = _entry_with(_parcels(BARCODE))
     entry.add_to_hass(hass)
     client = AsyncMock()
-    client.async_get_parcel.return_value = delivered_item()
+    client.async_get_parcel.return_value = active_item()
     coordinator = BpostCoordinator(hass, client, entry)
     await coordinator._async_update_data()
     stamp = coordinator.last_success_time
@@ -210,6 +213,51 @@ async def test_cache_only_poll_does_not_stamp_last_success(hass):
     client.async_get_parcel.side_effect = BpostApiError("HTTP 500")
     await coordinator._async_update_data()  # served from cache
     assert coordinator.last_success_time == stamp
+
+
+async def test_delivered_code_skipped_from_fetch(hass):
+    """A delivered barcode stops being fetched from the next cycle on."""
+    entry = _entry_with(_parcels(BARCODE, OTHER_BARCODE))
+    entry.add_to_hass(hass)
+    client = AsyncMock()
+    client.async_get_parcel.side_effect = lambda barcode, postal_code: (
+        active_item(barcode) if barcode == BARCODE else delivered_item(barcode)
+    )
+    coordinator = BpostCoordinator(hass, client, entry)
+
+    await coordinator._async_update_data()
+    assert client.async_get_parcel.call_count == 2
+    from custom_components.bpost.parcels import parcel_key
+
+    assert coordinator.delivered_codes == {parcel_key(OTHER_BARCODE)}
+
+    client.async_get_parcel.reset_mock()
+    data = await coordinator._async_update_data()
+
+    # Only the still-active barcode is fetched — the delivered one is skipped.
+    client.async_get_parcel.assert_called_once_with(BARCODE, POSTAL_CODE)
+    assert any(p["barcode"] == OTHER_BARCODE for p in coordinator.delivered)
+    assert data[0]["barcode"] == BARCODE
+
+
+async def test_delivered_code_forgotten_when_untracked(hass):
+    """Untracking a delivered barcode drops it from the skip set too."""
+    from custom_components.bpost.parcels import parcel_key
+
+    entry = _entry_with(_parcels(BARCODE))
+    entry.add_to_hass(hass)
+    client = AsyncMock()
+    client.async_get_parcel.return_value = delivered_item()
+    coordinator = BpostCoordinator(hass, client, entry)
+
+    await coordinator._async_update_data()
+    assert coordinator.delivered_codes == {parcel_key(BARCODE)}
+
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_PARCELS: []}
+    )
+    await coordinator._async_update_data()
+    assert coordinator.delivered_codes == set()
 
 
 # ---------------------------------------------------------------------------
