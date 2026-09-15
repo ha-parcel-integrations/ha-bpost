@@ -32,10 +32,10 @@
       "parcels": {
         "title": "Pakketten",
         "data": {
-          "tracking_codes": "Gevolgde barcodes"
+          "tracking_codes": "Trackingcodes"
         },
         "data_description": {
-          "tracking_codes": "De bpost-barcode(s), zoals vermeld op de verzendbevestiging of het niet-thuiskaartje. Gebruikt de postcode van deze hub."
+          "tracking_codes": "De bpost-trackingcode(s), zoals vermeld op de verzendbevestiging of het niet-thuiskaartje. Gebruikt de postcode van deze hub."
         }
       },
       "settings": {
@@ -48,7 +48,7 @@
       }
     },
     "error": {
-      "invalid_barcode": "Voer minstens één barcode in."
+      "invalid_tracking_code": "Voer minstens één trackingcode in."
     }
   },
   "selector": {
@@ -62,11 +62,11 @@
   "services": {
     "track_parcel": {
       "name": "Pakket volgen",
-      "description": "Begin met het volgen van een bpost-pakket via de barcode.",
+      "description": "Begin met het volgen van een bpost-pakket via de trackingcode.",
       "fields": {
         "tracking_code": {
-          "name": "Barcode",
-          "description": "De bpost-barcode."
+          "name": "Trackingcode",
+          "description": "De bpost-trackingcode."
         },
         "postal_code": {
           "name": "Postcode",
@@ -76,11 +76,11 @@
     },
     "untrack_parcel": {
       "name": "Pakket niet meer volgen",
-      "description": "Stop met het volgen van een bpost-pakket via de barcode.",
+      "description": "Stop met het volgen van een bpost-pakket via de trackingcode.",
       "fields": {
         "tracking_code": {
-          "name": "Barcode",
-          "description": "De bpost-barcode om niet meer te volgen."
+          "name": "Trackingcode",
+          "description": "De bpost-trackingcode om niet meer te volgen."
         }
       }
     }

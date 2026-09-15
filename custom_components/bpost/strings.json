@@ -32,10 +32,10 @@
       "parcels": {
         "title": "Parcels",
         "data": {
-          "tracking_codes": "Tracked barcodes"
+          "tracking_codes": "Tracking codes"
         },
         "data_description": {
-          "tracking_codes": "The bpost barcode(s), as printed on the shipping confirmation or the missed-delivery card. Uses this hub's postal code."
+          "tracking_codes": "The bpost tracking code(s), as printed on the shipping confirmation or the missed-delivery card. Uses this hub's postal code."
         }
       },
       "settings": {
@@ -48,7 +48,7 @@
       }
     },
     "error": {
-      "invalid_barcode": "Enter at least one barcode."
+      "invalid_tracking_code": "Enter at least one tracking code."
     }
   },
   "selector": {
@@ -62,11 +62,11 @@
   "services": {
     "track_parcel": {
       "name": "Track parcel",
-      "description": "Start tracking a parcel by its bpost barcode.",
+      "description": "Start tracking a parcel by its bpost tracking code.",
       "fields": {
         "tracking_code": {
-          "name": "Barcode",
-          "description": "The bpost barcode."
+          "name": "Tracking code",
+          "description": "The bpost tracking code."
         },
         "postal_code": {
           "name": "Postal code",
@@ -76,11 +76,11 @@
     },
     "untrack_parcel": {
       "name": "Untrack parcel",
-      "description": "Stop tracking a parcel by its bpost barcode.",
+      "description": "Stop tracking a parcel by its bpost tracking code.",
       "fields": {
         "tracking_code": {
-          "name": "Barcode",
-          "description": "The bpost barcode to stop tracking."
+          "name": "Tracking code",
+          "description": "The bpost tracking code to stop tracking."
         }
       }
     }

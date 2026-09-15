@@ -7,7 +7,7 @@
 
 > 💬 Questions or feedback? Join the discussion on the [Home Assistant community](https://community.home-assistant.io/t/packages-postnl-dhl-nl-dpd-and-gls-parcel-integration/112433/).
 
-A custom Home Assistant integration that tracks your [bpost](https://track.bpost.cloud/btr/web/#/search) (Belgium) parcels. No account is needed — set up a hub with your delivery postal code, then add parcels by barcode, just like on the bpost track-and-trace website.
+A custom Home Assistant integration that tracks your [bpost](https://track.bpost.cloud/btr/web/#/search) (Belgium) parcels. No account is needed — set up a hub with your delivery postal code, then add parcels by tracking code, just like on the bpost track-and-trace website.
 
 > **Pre-1.0 release.** This integration's field map was reconstructed from
 > third-party open-source clients, not confirmed against a real bpost parcel
@@ -39,7 +39,7 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 
 ## Features
 
-- Track any number of bpost parcels by barcode — no account needed, one hub per delivery postal code
+- Track any number of bpost parcels by tracking code — no account needed, one hub per delivery postal code
 - Per-parcel sensor with the canonical status (`out_for_delivery` / `delivered` / `unknown` / …), the carrier's own status text, the expected delivery window (when bpost reports one) and a tracking deep-link
 - Summary sensors: incoming parcels, next delivery, recently delivered parcels
 - Read-only **Deliveries** calendar with the expected delivery windows
@@ -52,8 +52,8 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 
 - Home Assistant 2024.12 or newer
 - The delivery postal code (asked once, at setup)
-- A bpost parcel's barcode (from the shipping confirmation e-mail or the
-  missed-delivery card) — bpost's public tracker requires both a barcode
+- A bpost parcel's tracking code (from the shipping confirmation e-mail or
+  the missed-delivery card) — bpost's public tracker requires both a code
   and a postal code to look up a parcel, no account needed
 
 ## Installation
@@ -72,7 +72,7 @@ Copy `custom_components/bpost` into your `config/custom_components/` folder and 
 
 Add the integration via **Settings → Devices & Services → Add Integration → bpost** and enter the postal code your parcels are delivered to. This becomes the hub's default for every parcel you add to it — a household that also receives parcels addressed to a different postcode adds a second bpost hub for that postcode.
 
-Then add parcels via the integration's **Configure** dialog, the [`bpost.track_parcel`](#services) service, or a [dashboard button](examples/dashboards/add_parcel_card.yaml) — just the barcode; the postal code comes from the hub.
+Then add parcels via the integration's **Configure** dialog, the [`bpost.track_parcel`](#services) service, or a [dashboard button](examples/dashboards/add_parcel_card.yaml) — just the tracking code; the postal code comes from the hub.
 
 ## Options
 
@@ -80,7 +80,7 @@ Open **Configure** on the integration entry:
 
 | Menu item | Description |
 |---|---|
-| Parcels | Edit the full list of tracked barcodes at once (add or remove any number, then save). No live validation — a barcode is confirmed on the next poll. |
+| Parcels | Edit the full list of tracked codes at once (add or remove any number, then save). No live validation — a tracking code is confirmed on the next poll. |
 | Settings | Delivered-parcel retention (filter by / amount) and the opt-in status-history attribute. |
 
 Changes apply immediately, no restart.
@@ -137,8 +137,8 @@ Every payload is the full normalised parcel plus the hub's `device_id`. Events a
 
 | Service | Fields | Description |
 |---|---|---|
-| `bpost.track_parcel` | `tracking_code` (the barcode), `postal_code` (optional, to pick a hub when more than one is set up) | Start tracking a parcel |
-| `bpost.untrack_parcel` | `tracking_code` (the barcode) | Stop tracking a parcel |
+| `bpost.track_parcel` | `tracking_code`, `postal_code` (optional, to pick a hub when more than one is set up) | Start tracking a parcel |
+| `bpost.untrack_parcel` | `tracking_code` | Stop tracking a parcel |
 
 ## Examples
 
@@ -161,9 +161,9 @@ logger:
 
 ## Troubleshooting
 
-- **A parcel shows `unknown`** — either bpost has no record for that barcode + the hub's postal code yet (it will pick up automatically once scanned), or its status code is not one of the three currently mapped.
+- **A parcel shows `unknown`** — either bpost has no record for that tracking code + the hub's postal code yet (it will pick up automatically once scanned), or its status code is not one of the three currently mapped.
 - **A log line says "Unrecognised bpost activeStep code"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-bpost/issues/new?template=unrecognised_status.yml) with the logged line so the mapping can be extended.
-- **A parcel never resolves** — double-check the barcode, and that the hub's postal code matches the delivery address; bpost's public tracker requires an exact match on both. A parcel addressed to a different postcode needs its own hub.
+- **A parcel never resolves** — double-check the tracking code, and that the hub's postal code matches the delivery address; bpost's public tracker requires an exact match on both. A parcel addressed to a different postcode needs its own hub.
 
 ## Related integrations
 

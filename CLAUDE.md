@@ -139,12 +139,16 @@ with two delivery addresses does.
 - **Options menu is `parcels` / `settings`** (not `add_parcel` /
   `remove_parcel` / `settings`) — the template's whole-list pattern, not the
   old per-item add/remove steps.
-- **The service field is `tracking_code`, not `barcode`** — the suite-standard
-  name every carrier exposes (`CONF_TRACKING_CODE`), even though bpost's own
-  vocabulary is "barcode" everywhere else. The *stored* options key stays
-  `barcode` (`CONF_BARCODE`), exactly as GLS keeps `parcel_no` behind a
-  `tracking_code` service field, so no entry migration is involved. Renamed in
-  0.10.0; automations written against 0.9.0's `barcode:` field must be updated.
+- **The user-facing word is "tracking code", not "barcode"** — the service
+  field (`CONF_TRACKING_CODE`), every label and description, and the
+  `invalid_tracking_code` options error, exactly as the other carriers word it,
+  even though bpost's own vocabulary is "barcode" everywhere else. The *stored*
+  options key stays `barcode` (`CONF_BARCODE`) and so does the `barcode`
+  contract field and the `sensor.bpost_parcel_<barcode>` entity id, exactly as
+  GLS keeps `parcel_no` behind a `tracking_code` service field, so no entry
+  migration is involved. The service field was renamed in 0.10.0 (automations
+  written against 0.9.0's `barcode:` field must be updated); the labels and the
+  error key followed later, and neither is a breaking change.
 - **`bpost.track_parcel` keeps an optional `postal_code` field** (mirroring
   GLS's own service) purely to pick *which* hub when more than one is
   configured; `bpost.untrack_parcel` takes only `tracking_code` and removes it

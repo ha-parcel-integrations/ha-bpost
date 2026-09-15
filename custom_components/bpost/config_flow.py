@@ -152,12 +152,12 @@ class BpostOptionsFlowHandler(OptionsFlow):
     async def async_step_parcels(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Show and handle the complete tracked-barcode list."""
+        """Show and handle the complete tracked-code list."""
         errors: dict[str, str] = {}
         if user_input is not None:
             codes = _clean_barcodes(user_input.get("tracking_codes"))
             if any(not valid_barcode(code) for code in codes):
-                errors["base"] = "invalid_barcode"
+                errors["base"] = "invalid_tracking_code"
             else:
                 return self.async_create_entry(
                     title="",

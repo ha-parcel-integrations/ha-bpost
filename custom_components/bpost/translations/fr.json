@@ -32,10 +32,10 @@
       "parcels": {
         "title": "Colis",
         "data": {
-          "tracking_codes": "Codes-barres suivis"
+          "tracking_codes": "Codes de suivi"
         },
         "data_description": {
-          "tracking_codes": "Le(s) code(s)-barres bpost, imprimé(s) sur la confirmation d'expédition ou l'avis de passage. Utilise le code postal de ce hub."
+          "tracking_codes": "Le(s) code(s) de suivi bpost, imprimé(s) sur la confirmation d'expédition ou l'avis de passage. Utilise le code postal de ce hub."
         }
       },
       "settings": {
@@ -48,7 +48,7 @@
       }
     },
     "error": {
-      "invalid_barcode": "Saisissez au moins un code-barres."
+      "invalid_tracking_code": "Saisissez au moins un code de suivi."
     }
   },
   "selector": {
@@ -62,11 +62,11 @@
   "services": {
     "track_parcel": {
       "name": "Suivre un colis",
-      "description": "Commencer à suivre un colis via son code-barres bpost.",
+      "description": "Commencer à suivre un colis via son code de suivi bpost.",
       "fields": {
         "tracking_code": {
-          "name": "Code-barres",
-          "description": "Le code-barres bpost."
+          "name": "Code de suivi",
+          "description": "Le code de suivi bpost."
         },
         "postal_code": {
           "name": "Code postal",
@@ -76,11 +76,11 @@
     },
     "untrack_parcel": {
       "name": "Ne plus suivre un colis",
-      "description": "Arrêter de suivre un colis via son code-barres bpost.",
+      "description": "Arrêter de suivre un colis via son code de suivi bpost.",
       "fields": {
         "tracking_code": {
-          "name": "Code-barres",
-          "description": "Le code-barres bpost à ne plus suivre."
+          "name": "Code de suivi",
+          "description": "Le code de suivi bpost à ne plus suivre."
         }
       }
     }
