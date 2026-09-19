@@ -72,6 +72,7 @@ async def test_account_outgoing_status_change_fires_suite_event(hass):
 
     await coordinator._async_update_data()
     await coordinator._async_update_data()
+    await hass.async_block_till_done()
 
     assert len(events) == 1
     assert events[0].data["old_status"] is ParcelStatus.IN_TRANSIT
@@ -91,6 +92,7 @@ async def test_account_outgoing_delivery_fires_dedicated_event_only(hass):
 
     await coordinator._async_update_data()
     await coordinator._async_update_data()
+    await hass.async_block_till_done()
 
     assert len(delivered) == 1
     assert changed == []
