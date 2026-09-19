@@ -34,7 +34,7 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 ## Features
 
 - Track any number of bpost parcels by tracking code — no account needed, one hub per delivery postal code
-- My bpost account inbox, with one-time password login and automatic parcel discovery; the password is never stored
+- My bpost account inbox: sign in once and every parcel in it is imported and kept up to date, incoming and outgoing; only rotating tokens are stored, never your password
 - Per-parcel sensor with the canonical status (`out_for_delivery` / `delivered` / `unknown` / …), the carrier's own status text, the expected delivery window (when bpost reports one) and a tracking deep-link
 - Summary sensors: incoming parcels, next delivery, recently delivered parcels,
   plus outgoing and delivered-outgoing parcels for account entries
@@ -48,10 +48,13 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 ## Requirements
 
 - Home Assistant 2024.12 or newer
-- The delivery postal code (asked once, at setup)
-- A bpost parcel's tracking code (from the shipping confirmation e-mail or
-  the missed-delivery card) — bpost's public tracker requires both a code
-  and a postal code to look up a parcel, no account needed
+- For tracking codes: the delivery postal code (asked once, at setup) and a
+  parcel's tracking code (from the shipping confirmation e-mail or the
+  missed-delivery card) — bpost's public tracker requires both to look up a
+  parcel, no account needed
+- For the account route: the e-mail address and password of your My bpost
+  account. Home Assistant asks you to sign in again if bpost stops accepting
+  the stored tokens.
 
 ## Installation
 
@@ -67,9 +70,11 @@ Copy `custom_components/bpost` into your `config/custom_components/` folder and 
 
 ## Configuration
 
-Add the integration via **Settings → Devices & Services → Add Integration → bpost**, then choose **Tracking codes** or **Account (automatic import)**. Tracking codes use the delivery postal code as the hub default. The account route stores rotating tokens, never your password.
+Add the integration via **Settings → Devices & Services → Add Integration → bpost**, then choose **Tracking codes** or **Account (automatic import)**. Both kinds can be set up side by side.
 
-Then add parcels via the integration's **Configure** dialog, the [`bpost.track_parcel`](#services) service, or a [dashboard button](examples/dashboards/add_parcel_card.yaml) — just the tracking code; the postal code comes from the hub.
+**Tracking codes** ask for the delivery postal code, which becomes the hub default for every parcel you add to it. Add parcels via the integration's **Configure** dialog, the [`bpost.track_parcel`](#services) service, or a [dashboard button](examples/dashboards/add_parcel_card.yaml) — just the tracking code; the postal code comes from the hub.
+
+**Account (automatic import)** asks for your My bpost e-mail address and password once, then keeps its parcel list in step with your inbox — nothing to add by hand. Only the rotating tokens bpost hands back are stored; your password is not.
 
 ## Options
 
@@ -77,7 +82,7 @@ Open **Configure** on the integration entry:
 
 | Menu item | Description |
 |---|---|
-| Parcels | Edit the full list of tracked codes at once (add or remove any number, then save). No live validation — a tracking code is confirmed on the next poll. |
+| Parcels | Edit the full list of tracked codes at once (add or remove any number, then save). No live validation — a tracking code is confirmed on the next poll. Tracking-code entries only; an account entry has no list to edit. |
 | Settings | Delivered-parcel retention (filter by / amount) and the opt-in status-history attribute. |
 
 Changes apply immediately, no restart.
@@ -141,6 +146,8 @@ Every payload is the full normalised parcel plus the hub's `device_id`. Events a
 | `bpost.track_parcel` | `tracking_code`, `postal_code` (optional, to pick a hub when more than one is set up) | Start tracking a parcel |
 | `bpost.untrack_parcel` | `tracking_code` | Stop tracking a parcel |
 
+Both act on tracking-code entries; account entries follow your My bpost inbox and are never edited by hand.
+
 ## Examples
 
 Ready-to-paste automations and dashboard snippets live in [`examples/`](examples/), including tracking a new parcel straight from a dashboard.
@@ -164,6 +171,9 @@ logger:
 
 - **A parcel shows `unknown`** — either bpost has no record for that tracking code + the hub's postal code yet (it will pick up automatically once scanned), or bpost is reporting a status code that is not in the mapped vocabulary yet — the log says which one.
 - **A log line says "Unrecognised bpost … status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-bpost/issues/new?template=unrecognised_status.yml) with the logged line so the mapping can be extended.
+- **"bpost needs reauthentication"** — bpost stopped accepting the stored
+  tokens for an account entry. Open the repair Home Assistant offers and enter
+  that account's password again; nothing else is lost.
 - **A parcel never resolves** — double-check the tracking code, and that the hub's postal code matches the delivery address; bpost's public tracker requires an exact match on both. A parcel addressed to a different postcode needs its own hub.
 
 ## Related integrations

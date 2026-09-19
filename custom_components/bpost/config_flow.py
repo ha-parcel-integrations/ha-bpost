@@ -210,6 +210,7 @@ class BpostConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
+            description_placeholders={"email": entry.data[CONF_EMAIL]},
             errors=errors,
         )
 

@@ -4,7 +4,10 @@
     "step": {
       "user": {
         "title": "bpost instellen",
-        "menu_options": {"account": "Account (automatisch importeren)", "tracking": "Trackingcodes"}
+        "menu_options": {
+          "account": "Account (automatisch importeren)",
+          "tracking": "Trackingcodes"
+        }
       },
       "tracking": {
         "title": "Trackingcodes instellen",
@@ -19,14 +22,28 @@
       "account": {
         "title": "bpost-account instellen",
         "description": "Meld eenmalig aan om pakketten uit je My bpost-account te importeren. Je wachtwoord wordt nooit opgeslagen.",
-        "data": {"email": "E-mailadres", "password": "Wachtwoord"}
+        "data": {
+          "email": "E-mailadres",
+          "password": "Wachtwoord"
+        }
+      },
+      "reauth_confirm": {
+        "title": "bpost-aanmelding verlopen",
+        "description": "bpost accepteert de opgeslagen tokens voor {email} niet meer. Voer het wachtwoord van dat account opnieuw in.",
+        "data": {
+          "password": "Wachtwoord"
+        }
       }
     },
     "error": {
-      "invalid_postcode": "Voer een postcode in.", "invalid_auth": "Aanmelden met deze gegevens is niet gelukt.", "cannot_connect": "Kan geen verbinding maken met de bpost-accountservice."
+      "invalid_postcode": "Voer een postcode in.",
+      "invalid_auth": "Aanmelden met deze gegevens is niet gelukt.",
+      "cannot_connect": "Kan geen verbinding maken met de bpost-accountservice."
     },
     "abort": {
-      "already_configured": "Er is al een bpost-hub voor deze postcode ingesteld."
+      "already_configured": "Er is al een bpost-hub voor deze postcode ingesteld.",
+      "reauth_successful": "bpost is opnieuw aangemeld.",
+      "unique_id_mismatch": "Die aanmelding hoort bij een ander bpost-account. Meld je aan met het account waarvoor dit item is ingesteld."
     }
   },
   "options": {

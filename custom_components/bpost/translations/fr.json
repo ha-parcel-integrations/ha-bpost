@@ -4,7 +4,10 @@
     "step": {
       "user": {
         "title": "Configurer bpost",
-        "menu_options": {"account": "Compte (importation automatique)", "tracking": "Codes de suivi"}
+        "menu_options": {
+          "account": "Compte (importation automatique)",
+          "tracking": "Codes de suivi"
+        }
       },
       "tracking": {
         "title": "Configurer les codes de suivi",
@@ -19,14 +22,28 @@
       "account": {
         "title": "Configurer le compte bpost",
         "description": "Connectez-vous une fois pour importer les colis de votre compte My bpost. Votre mot de passe n'est jamais enregistré.",
-        "data": {"email": "Adresse e-mail", "password": "Mot de passe"}
+        "data": {
+          "email": "Adresse e-mail",
+          "password": "Mot de passe"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Connexion bpost expirée",
+        "description": "bpost n'accepte plus les jetons enregistrés pour {email}. Saisissez à nouveau le mot de passe de ce compte.",
+        "data": {
+          "password": "Mot de passe"
+        }
       }
     },
     "error": {
-      "invalid_postcode": "Saisissez un code postal.", "invalid_auth": "Impossible de se connecter avec ces identifiants.", "cannot_connect": "Impossible de joindre le service de compte bpost."
+      "invalid_postcode": "Saisissez un code postal.",
+      "invalid_auth": "Impossible de se connecter avec ces identifiants.",
+      "cannot_connect": "Impossible de joindre le service de compte bpost."
     },
     "abort": {
-      "already_configured": "Un hub bpost pour ce code postal est déjà configuré."
+      "already_configured": "Un hub bpost pour ce code postal est déjà configuré.",
+      "reauth_successful": "bpost a été reconnecté avec succès.",
+      "unique_id_mismatch": "Cette connexion concerne un autre compte bpost. Connectez-vous avec le compte utilisé pour configurer cette entrée."
     }
   },
   "options": {

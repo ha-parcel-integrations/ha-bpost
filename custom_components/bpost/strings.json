@@ -26,6 +26,13 @@
           "email": "Email address",
           "password": "Password"
         }
+      },
+      "reauth_confirm": {
+        "title": "bpost sign-in expired",
+        "description": "bpost no longer accepts the stored tokens for {email}. Enter that account's password again.",
+        "data": {
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -34,7 +41,9 @@
       "cannot_connect": "Unable to connect to the bpost account service."
     },
     "abort": {
-      "already_configured": "A bpost hub for this postal code is already set up."
+      "already_configured": "A bpost hub for this postal code is already set up.",
+      "reauth_successful": "bpost was reauthenticated successfully.",
+      "unique_id_mismatch": "That sign-in is for a different bpost account. Sign in with the account this entry was set up for."
     }
   },
   "options": {
