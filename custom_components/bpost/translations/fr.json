@@ -4,6 +4,10 @@
     "step": {
       "user": {
         "title": "Configurer bpost",
+        "menu_options": {"account": "Compte (importation automatique)", "tracking": "Codes de suivi"}
+      },
+      "tracking": {
+        "title": "Configurer les codes de suivi",
         "description": "Le suivi bpost ne nécessite pas de compte — juste le code postal de livraison des colis. Il devient la valeur par défaut pour chaque colis ajouté à ce hub. Ajoutez un autre hub pour un code postal différent.",
         "data": {
           "postal_code": "Code postal"
@@ -11,10 +15,15 @@
         "data_description": {
           "postal_code": "Le code postal de livraison — bpost l'exige pour rechercher un colis."
         }
+      },
+      "account": {
+        "title": "Configurer le compte bpost",
+        "description": "Connectez-vous une fois pour importer les colis de votre compte My bpost. Votre mot de passe n'est jamais enregistré.",
+        "data": {"email": "Adresse e-mail", "password": "Mot de passe"}
       }
     },
     "error": {
-      "invalid_postcode": "Saisissez un code postal."
+      "invalid_postcode": "Saisissez un code postal.", "invalid_auth": "Impossible de se connecter avec ces identifiants.", "cannot_connect": "Impossible de joindre le service de compte bpost."
     },
     "abort": {
       "already_configured": "Un hub bpost pour ce code postal est déjà configuré."
@@ -112,8 +121,20 @@
       "next_delivery": {
         "name": "Prochaine livraison"
       },
+      "awaiting_pickup": {
+        "name": "En attente de retrait",
+        "unit_of_measurement": "colis"
+      },
       "delivered_parcels": {
         "name": "Colis livrés",
+        "unit_of_measurement": "colis"
+      },
+      "outgoing_parcels": {
+        "name": "Colis sortants",
+        "unit_of_measurement": "colis"
+      },
+      "outgoing_delivered_parcels": {
+        "name": "Colis sortants livrés",
         "unit_of_measurement": "colis"
       },
       "last_update": {

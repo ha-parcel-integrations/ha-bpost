@@ -26,10 +26,12 @@ from .const import (
     CONF_BARCODE,
     CONF_PARCELS,
     CONF_POSTAL_CODE,
+    CONF_SOURCE,
     CONF_TRACKING_CODE,
     DOMAIN,
+    SOURCE_TRACKING,
 )
-from .parcels import parcel_key
+from .tracking.parcels import parcel_key
 
 SERVICE_TRACK_PARCEL = "track_parcel"
 SERVICE_UNTRACK_PARCEL = "untrack_parcel"
@@ -50,7 +52,10 @@ def _resolve_entry(hass: HomeAssistant, postal_code: str | None) -> ConfigEntry:
     selects it; if omitted and ambiguous, raise so the caller knows to
     specify one.
     """
-    entries = hass.config_entries.async_entries(DOMAIN)
+    entries = [
+        entry for entry in hass.config_entries.async_entries(DOMAIN)
+        if entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
+    ]
     if not entries:
         raise ServiceValidationError("bpost is not set up")
     if postal_code:
@@ -89,7 +94,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def _untrack(call: ServiceCall) -> None:
         barcode = normalize_barcode(call.data[CONF_TRACKING_CODE])
         target_key = parcel_key(barcode)
-        entries = hass.config_entries.async_entries(DOMAIN)
+        entries = [
+            entry for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
+        ]
         if not entries:
             raise ServiceValidationError("bpost is not set up")
         # Remove the parcel from whichever hub(s) track it.

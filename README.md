@@ -7,13 +7,12 @@
 
 > 💬 Questions or feedback? Join the discussion on the [Home Assistant community](https://community.home-assistant.io/t/packages-postnl-dhl-nl-dpd-and-gls-parcel-integration/112433/).
 
-A custom Home Assistant integration that tracks your [bpost](https://track.bpost.cloud/btr/web/#/search) (Belgium) parcels. No account is needed — set up a hub with your delivery postal code, then add parcels by tracking code, just like on the bpost track-and-trace website.
+A custom Home Assistant integration that tracks your [bpost](https://track.bpost.cloud/btr/web/#/search) (Belgium) parcels. Choose either tracking codes with a delivery postal code, or the experimental My bpost account inbox.
 
-> **Pre-1.0 release.** This integration's field map was reconstructed from
-> third-party open-source clients, not confirmed against a real bpost parcel
-> yet. It ships anyway, with a one-shot warning for anything unrecognised —
-> see [Troubleshooting](#troubleshooting). `1.0.0` will follow once a real
-> parcel confirms the shape.
+> **My bpost account beta.** The optional account inbox uses bpost's mobile
+> API, so it may need an integration update if bpost tightens its app
+> compatibility requirements. It stores rotating access tokens, never your
+> password.
 
 Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) family: it publishes the same canonical parcel format, statuses and events as the other carrier integrations, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
 
@@ -40,11 +39,14 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 ## Features
 
 - Track any number of bpost parcels by tracking code — no account needed, one hub per delivery postal code
+- Experimental My bpost account inbox, with one-time password login and automatic parcel discovery; the password is never stored
 - Per-parcel sensor with the canonical status (`out_for_delivery` / `delivered` / `unknown` / …), the carrier's own status text, the expected delivery window (when bpost reports one) and a tracking deep-link
-- Summary sensors: incoming parcels, next delivery, recently delivered parcels
+- Summary sensors: incoming parcels, next delivery, recently delivered parcels,
+  plus outgoing and delivered-outgoing parcels for account entries
 - Read-only **Deliveries** calendar with the expected delivery windows
 - `bpost.track_parcel` / `bpost.untrack_parcel` services, so a dashboard button can add a parcel
-- Events + device triggers for no-code automations (parcel registered, status changed, delivered, delivery time changed)
+- Events + device triggers for no-code automations, including outgoing status
+  changes and delivery for account entries
 - Opt-in per-parcel status history
 - Manual refresh button and a diagnostic last-update sensor
 
@@ -70,7 +72,7 @@ Copy `custom_components/bpost` into your `config/custom_components/` folder and 
 
 ## Configuration
 
-Add the integration via **Settings → Devices & Services → Add Integration → bpost** and enter the postal code your parcels are delivered to. This becomes the hub's default for every parcel you add to it — a household that also receives parcels addressed to a different postcode adds a second bpost hub for that postcode.
+Add the integration via **Settings → Devices & Services → Add Integration → bpost**, then choose **Tracking codes** or **Account (automatic import)**. Tracking codes use the delivery postal code as the hub default. Account support is experimental because it depends on bpost's mobile API; it stores rotating tokens, never your password.
 
 Then add parcels via the integration's **Configure** dialog, the [`bpost.track_parcel`](#services) service, or a [dashboard button](examples/dashboards/add_parcel_card.yaml) — just the tracking code; the postal code comes from the hub.
 
@@ -101,22 +103,24 @@ Standard HA removal applies: **Settings → Devices & Services → bpost → ⋮
 | `sensor.bpost_incoming_parcels` | Number of active tracked parcels, full list under the `parcels` attribute |
 | `sensor.bpost_parcel_<barcode>` | One per tracked parcel; state is the canonical status, attributes carry the full normalised parcel |
 | `sensor.bpost_next_delivery` | Earliest expected delivery moment across all active parcels |
+| `sensor.bpost_awaiting_pickup` | Incoming parcels that are ready to collect at a pickup point |
 | `sensor.bpost_delivered_parcels` | Recently delivered parcels (see the retention option) |
+| `sensor.bpost_outgoing_parcels` | Active sender parcels; account entries only |
+| `sensor.bpost_outgoing_delivered_parcels` | Recently delivered sender parcels; account entries only |
 | `sensor.bpost_last_successful_update` | Diagnostic: when bpost was last polled successfully |
 
 A delivered parcel moves from its per-parcel sensor to the delivered sensor automatically.
 
 ## Parcel status reference
 
-The `status` field is the carrier-agnostic enum shared by the whole integration family. Only three bpost status codes are confirmed today — the vocabulary is open and undocumented, and this integration reports anything else as `unknown` with a one-shot log warning asking you to [report it](https://github.com/ha-parcel-integrations/ha-bpost/issues/new):
+The `status` field is the carrier-agnostic enum shared by the whole integration family. Both the public tracker and the account inbox report the same bpost status vocabulary, and it is mapped in full — preparation, transit, out-for-delivery, ready-to-collect, delivered, return and customs states. An unseen delivery method is still matched on its family prefix, and any code that stays unmapped is reported as `unknown` with a one-shot log warning asking you to [report it](https://github.com/ha-parcel-integrations/ha-bpost/issues/new):
 
 | Status | Meaning |
 |---|---|
-| `out_for_delivery` | With the courier today |
+| `registered`, `in_transit`, `out_for_delivery` | Announced, moving through the network, or with the courier today |
+| `at_pickup_point`, `returning`, `problem` | Ready to collect, returning to sender, or a delivery exception |
 | `delivered` | Delivered — including to a Kariboo pickup point, which is a delivery *method*, not a still-waiting state |
 | `unknown` | Not yet found, or a status code we have not mapped yet |
-
-The other canonical statuses (`registered`, `in_transit`, `at_pickup_point`, `returning`, `problem`) exist in the shared enum but no bpost code is currently known to reach them.
 
 The carrier's own status code is always available as `raw_status`.
 
@@ -130,6 +134,8 @@ The integration fires these on the event bus (also available as device triggers 
 | `bpost_parcel_status_changed` | A parcel's canonical status changes (`old_status` / `new_status` in the payload), except the final hop to delivered |
 | `bpost_parcel_delivered` | A parcel is delivered |
 | `bpost_parcel_delivery_time_changed` | The expected delivery window changes |
+| `bpost_outgoing_parcel_status_changed` | An account sender parcel's canonical status changes (`old_status` / `new_status`) |
+| `bpost_outgoing_parcel_delivered` | An account sender parcel is delivered or returned to its sender |
 
 Every payload is the full normalised parcel plus the hub's `device_id`. Events are suppressed on the first refresh after start-up.
 
@@ -161,8 +167,8 @@ logger:
 
 ## Troubleshooting
 
-- **A parcel shows `unknown`** — either bpost has no record for that tracking code + the hub's postal code yet (it will pick up automatically once scanned), or its status code is not one of the three currently mapped.
-- **A log line says "Unrecognised bpost activeStep code"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-bpost/issues/new?template=unrecognised_status.yml) with the logged line so the mapping can be extended.
+- **A parcel shows `unknown`** — either bpost has no record for that tracking code + the hub's postal code yet (it will pick up automatically once scanned), or bpost is reporting a status code that is not in the mapped vocabulary yet — the log says which one.
+- **A log line says "Unrecognised bpost … status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-bpost/issues/new?template=unrecognised_status.yml) with the logged line so the mapping can be extended.
 - **A parcel never resolves** — double-check the tracking code, and that the hub's postal code matches the delivery address; bpost's public tracker requires an exact match on both. A parcel addressed to a different postcode needs its own hub.
 
 ## Related integrations

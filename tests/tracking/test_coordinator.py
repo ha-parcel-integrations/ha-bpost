@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.bpost.api import BpostApiError
 from custom_components.bpost.const import (
     CONF_BARCODE,
     CONF_DELIVERED_FILTER_AMOUNT,
@@ -17,7 +16,8 @@ from custom_components.bpost.const import (
     DOMAIN,
     ParcelStatus,
 )
-from custom_components.bpost.coordinator import BpostCoordinator
+from custom_components.bpost.tracking.api import BpostApiError
+from custom_components.bpost.tracking.coordinator import BpostCoordinator
 
 from .payloads import BARCODE, POSTAL_CODE, active_item, delivered_item, in_transit_item
 
@@ -325,14 +325,14 @@ async def test_fires_status_changed_event(hass):
     )
 
     client.async_get_parcel.return_value = in_transit_item()
-    await coordinator._async_update_data()  # first refresh: suppressed (unknown)
+    await coordinator._async_update_data()  # first refresh: baseline only
 
     client.async_get_parcel.return_value = active_item()  # out for delivery
     await coordinator._async_update_data()
     await hass.async_block_till_done()
 
     assert len(events) == 1
-    assert events[0].data["old_status"] == ParcelStatus.UNKNOWN
+    assert events[0].data["old_status"] == ParcelStatus.IN_TRANSIT
     assert events[0].data["new_status"] == ParcelStatus.OUT_FOR_DELIVERY
 
 

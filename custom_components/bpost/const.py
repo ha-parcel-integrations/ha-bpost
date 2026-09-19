@@ -35,12 +35,20 @@ KNOWN_CAPABILITIES = frozenset(
     {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
 )
 
-# bpost's public tracker: no weight/dimensions on this route, ever; pickup_point is deliberately never
-# populated (deliveryPoint's contents are unconfirmed — see parcels.py); the
-# ETA window and event history are implemented, and the deep link is always
-# built (it needs no carrier data beyond the barcode/postcode the user
-# supplied). Keep in sync with parcels.normalize_parcel().
-CAPABILITIES = frozenset({"delivery_window", "url", "history"})
+# bpost's public tracker: weight and dimensions do come back (confirmed on two
+# real parcels, 2026-09-19 — an earlier revision wrongly declared this route
+# incapable of both); pickup_point is deliberately never populated
+# (deliveryPoint's contents are unconfirmed — see parcels.py); the ETA window
+# and event history are implemented, and the deep link is always built (it
+# needs no carrier data beyond the barcode/postcode the user supplied).
+# Keep in sync with parcels.normalize_parcel().
+CAPABILITIES_BY_VARIANT = {
+    "Tracking": frozenset({"weight", "dimensions", "delivery_window", "url", "history"}),
+    # Confirmed My bpost v3 captures provide grams, centimetres, an ETA window
+    # and a newest-first event timeline. History remains opt-in as usual.
+    "Account": frozenset({"weight", "dimensions", "delivery_window", "url", "history"}),
+}
+CAPABILITIES = CAPABILITIES_BY_VARIANT["Tracking"]
 
 # Two keyless, unauthenticated JSON routes on track.bpost.cloud — no headers,
 # no cookies, no key. Code model: both the barcode (bpost calls it
@@ -57,11 +65,18 @@ ITEM_ON_ROUND_STATUS_URL = (
 
 # Human-facing deep link surfaced on each parcel's ``url`` field. ``{lang}``
 # is resolved from hass.config.language, limited to nl/fr/en (see
-# parcels.resolve_lang) — the only three the source client's label object
-# ever carries.
+# parcels.resolve_lang) — the only three the tracker's label object ever
+# carries.
 TRACKING_URL = (
     "https://track.bpost.cloud/btr/web/#/search"
     "?lang={lang}&itemCode={barcode}&postalCode={postal_code}"
+)
+
+# My bpost account payloads supply an item code but not necessarily the delivery
+# postcode. This account-safe public deep link was confirmed against a real
+# account parcel and must therefore stay separate from ``TRACKING_URL``.
+ACCOUNT_TRACKING_URL = (
+    "https://track.bpost.cloud/btr/web/#/search?lang={lang}&itemCode={barcode}"
 )
 
 # Tracked parcels live in the config entry options as a list of ``{barcode}``
@@ -78,6 +93,22 @@ CONF_BARCODE = "barcode"
 # service surface is suite-standard, mirroring GLS.
 CONF_TRACKING_CODE = "tracking_code"
 CONF_POSTAL_CODE = "postal_code"
+CONF_SOURCE = "source"
+SOURCE_ACCOUNT = "account"
+SOURCE_TRACKING = "tracking"
+CONF_EMAIL = "email"
+CONF_PASSWORD = "password"
+CONF_ACCESS_TOKEN = "access_token"
+CONF_REFRESH_TOKEN = "refresh_token"
+
+# My bpost's mobile API is an app-facing surface.  These values are transport
+# compatibility material, never user credentials: do not expose them in UI,
+# diagnostics or log messages.  A rejected key/version is a compatibility
+# failure, not a reason to ask every user to reauthenticate.
+ACCOUNT_API_URL = "https://mybpost.bpost.cloud/prod_v2"
+ACCOUNT_APP_VERSION = "3.45.1"
+ACCOUNT_API_KEY = "iBLz8oTy8K1KAnPZJLltU527bWmLt6XQ6y8RF5hT"
+ACCOUNT_TOKEN_REFRESH_MARGIN_SECONDS = 60
 
 # Delivered-parcels retention: keep delivered parcels visible for the last N
 # days, or keep only the N most recent — identical across the suite.

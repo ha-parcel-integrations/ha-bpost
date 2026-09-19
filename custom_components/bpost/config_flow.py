@@ -14,18 +14,29 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .account.client import (
+    BpostAccountApiError,
+    BpostAccountClient,
+    BpostAccountInvalidCredentials,
+)
 from .const import (
     CONF_BARCODE,
     CONF_DELIVERED_FILTER_AMOUNT,
     CONF_DELIVERED_FILTER_TYPE,
+    CONF_EMAIL,
     CONF_INCLUDE_HISTORY,
     CONF_PARCELS,
+    CONF_PASSWORD,
     CONF_POSTAL_CODE,
+    CONF_SOURCE,
     DEFAULT_DELIVERED_FILTER_AMOUNT,
     DEFAULT_DELIVERED_FILTER_TYPE,
     DEFAULT_INCLUDE_HISTORY,
     DOMAIN,
+    SOURCE_ACCOUNT,
+    SOURCE_TRACKING,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -102,6 +113,12 @@ class BpostConfigFlow(ConfigFlow, domain=DOMAIN):
         GLS's account-less, postcode-keyed model exactly. Setup does not hit
         the API — the endpoint needs a barcode too.
         """
+        return self.async_show_menu(step_id="user", menu_options=[SOURCE_ACCOUNT, SOURCE_TRACKING])
+
+    async def async_step_tracking(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Create the existing code-and-postcode tracking hub."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -113,7 +130,7 @@ class BpostConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=f"bpost ({postal_code})",
-                    data={},
+                    data={CONF_SOURCE: SOURCE_TRACKING},
                     options={
                         CONF_POSTAL_CODE: postal_code,
                         CONF_PARCELS: [],
@@ -124,8 +141,75 @@ class BpostConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
 
         return self.async_show_form(
-            step_id="user",
+            step_id=SOURCE_TRACKING,
             data_schema=vol.Schema({vol.Required(CONF_POSTAL_CODE): str}),
+            errors=errors,
+        )
+
+    async def async_step_account(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Log in once and persist only the token pair, never the password."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            email = str(user_input[CONF_EMAIL]).strip().lower()
+            password = str(user_input[CONF_PASSWORD])
+            if not email or not password:
+                errors["base"] = "invalid_auth"
+            else:
+                client = BpostAccountClient(async_get_clientsession(self.hass))
+                try:
+                    tokens = await client.async_login(email, password)
+                except BpostAccountInvalidCredentials:
+                    errors["base"] = "invalid_auth"
+                except BpostAccountApiError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    await self.async_set_unique_id(f"account:{email}")
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(
+                        title=f"bpost ({email})",
+                        data={CONF_SOURCE: SOURCE_ACCOUNT, CONF_EMAIL: email, **tokens},
+                        options={
+                            CONF_DELIVERED_FILTER_TYPE: DEFAULT_DELIVERED_FILTER_TYPE,
+                            CONF_DELIVERED_FILTER_AMOUNT: DEFAULT_DELIVERED_FILTER_AMOUNT,
+                            CONF_INCLUDE_HISTORY: DEFAULT_INCLUDE_HISTORY,
+                        },
+                    )
+        return self.async_show_form(
+            step_id=SOURCE_ACCOUNT,
+            data_schema=vol.Schema({vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str}),
+            errors=errors,
+        )
+
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Reauthenticate the fixed account; never silently change accounts."""
+        self._reauth_entry = self._get_reauth_entry()
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Replace only the rotated tokens after a successful password login."""
+        errors: dict[str, str] = {}
+        entry = self._reauth_entry
+        if user_input is not None:
+            client = BpostAccountClient(async_get_clientsession(self.hass))
+            try:
+                tokens = await client.async_login(entry.data[CONF_EMAIL], user_input[CONF_PASSWORD])
+            except BpostAccountInvalidCredentials:
+                errors["base"] = "invalid_auth"
+            except BpostAccountApiError:
+                errors["base"] = "cannot_connect"
+            else:
+                await self.async_set_unique_id(entry.unique_id)
+                self._abort_if_unique_id_mismatch()
+                return self.async_update_reload_and_abort(entry, data_updates=tokens)
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
             errors=errors,
         )
 
@@ -145,9 +229,10 @@ class BpostOptionsFlowHandler(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Offer parcel management separately from integration settings."""
-        return self.async_show_menu(
-            step_id="init", menu_options=["parcels", "settings"]
-        )
+        menu_options = ["settings"]
+        if self.config_entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING:
+            menu_options.insert(0, "parcels")
+        return self.async_show_menu(step_id="init", menu_options=menu_options)
 
     async def async_step_parcels(
         self, user_input: dict[str, Any] | None = None

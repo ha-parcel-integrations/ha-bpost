@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 import pytest
 
-from custom_components.bpost.api import BpostApiClient, BpostApiError
+from custom_components.bpost.tracking.api import BpostApiClient, BpostApiError
 
 from .payloads import BARCODE, POSTAL_CODE, active_item, delivered_item, item
 

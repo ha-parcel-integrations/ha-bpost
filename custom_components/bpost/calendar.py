@@ -11,9 +11,9 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import BpostConfigEntry
-from .coordinator import BpostCoordinator
 from .device import ATTRIBUTION, build_device_info
-from .parcels import parse_iso
+from .tracking.coordinator import BpostCoordinator
+from .tracking.parcels import parse_iso
 
 PARALLEL_UPDATES = 0
 
@@ -50,7 +50,9 @@ class BpostDeliveriesCalendar(CoordinatorEntity[BpostCoordinator], CalendarEntit
 
     def _events(self) -> list[CalendarEvent]:
         events: list[CalendarEvent] = []
-        for parcel in self.coordinator.data or []:
+        data = self.coordinator.data or []
+        parcels = data.get("incoming_active", []) if isinstance(data, dict) else data
+        for parcel in parcels:
             start = parse_iso(parcel.get("planned_from"))
             if start is None:
                 continue

@@ -4,10 +4,13 @@ from unittest.mock import MagicMock
 
 from custom_components.bpost.const import ParcelStatus
 from custom_components.bpost.sensor import (
+    BpostAwaitingPickupSensor,
     BpostDeliveredParcelsSensor,
     BpostIncomingParcelsSensor,
     BpostLastUpdateSensor,
     BpostNextDeliverySensor,
+    BpostOutgoingDeliveredParcelsSensor,
+    BpostOutgoingParcelsSensor,
     BpostParcelSensor,
 )
 
@@ -92,6 +95,38 @@ def test_delivered_sensor():
     sensor = BpostDeliveredParcelsSensor(coordinator, _entry())
     assert sensor.native_value == 1
     assert sensor.extra_state_attributes["parcels"][0]["barcode"] == "D"
+
+
+def test_awaiting_pickup_counts_only_parcels_ready_for_collection():
+    ready = _parcel("READY", status=ParcelStatus.AT_PICKUP_POINT, pickup=True)
+    en_route = _parcel("ROUTE", status=ParcelStatus.IN_TRANSIT, pickup=True)
+    home_delivery = _parcel("HOME", status=ParcelStatus.AT_PICKUP_POINT)
+    sensor = BpostAwaitingPickupSensor(
+        _coordinator([ready, en_route, home_delivery]), _entry()
+    )
+
+    assert sensor.native_value == 1
+    assert sensor.extra_state_attributes["parcels"] == [ready]
+
+
+def test_account_bucket_sensors_use_the_standard_coordinator_data():
+    active = _parcel("OUT")
+    delivered = _parcel("DONE", status=ParcelStatus.DELIVERED)
+    coordinator = _coordinator(
+        {
+            "incoming_active": [],
+            "incoming_delivered": [],
+            "outgoing_active": [active],
+            "outgoing_delivered": [delivered],
+        }
+    )
+    outgoing = BpostOutgoingParcelsSensor(coordinator, _entry())
+    outgoing_delivered = BpostOutgoingDeliveredParcelsSensor(coordinator, _entry())
+
+    assert outgoing.native_value == 1
+    assert outgoing.extra_state_attributes["parcels"] == [active]
+    assert outgoing_delivered.native_value == 1
+    assert outgoing_delivered.extra_state_attributes["parcels"] == [delivered]
 
 
 def test_last_update_sensor():

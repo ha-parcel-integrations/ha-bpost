@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 
-from .const import CONF_POSTAL_CODE, DOMAIN
+from .const import CONF_EMAIL, CONF_POSTAL_CODE, CONF_SOURCE, DOMAIN, SOURCE_ACCOUNT
 
 CONFIGURATION_URL = "https://track.bpost.cloud/btr/web/#/search"
 
@@ -25,9 +25,14 @@ def build_device_info(entry: ConfigEntry) -> DeviceInfo:
     account-in-name pattern for its own postcode-keyed hubs.
     """
     postal_code = entry.options.get(CONF_POSTAL_CODE, "")
+    is_account = entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
-        name=f"bpost ({postal_code})" if postal_code else "bpost",
+        name=(
+            f"bpost ({entry.data.get(CONF_EMAIL)})"
+            if is_account and entry.data.get(CONF_EMAIL)
+            else (f"bpost ({postal_code})" if postal_code else "bpost")
+        ),
         manufacturer="bpost",
         entry_type=DeviceEntryType.SERVICE,
         configuration_url=CONFIGURATION_URL,

@@ -11,7 +11,6 @@ import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.bpost.api import BpostApiError
 from custom_components.bpost.const import (
     CONF_BARCODE,
     CONF_DELIVERED_FILTER_AMOUNT,
@@ -23,7 +22,8 @@ from custom_components.bpost.const import (
     MID_INTERVAL_MINUTES,
     STAGGER_MINUTES,
 )
-from custom_components.bpost.coordinator import (
+from custom_components.bpost.tracking.api import BpostApiError
+from custom_components.bpost.tracking.coordinator import (
     BpostCoordinator,
     _hottest_tier_minutes,
     _in_quiet_window,

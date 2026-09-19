@@ -18,10 +18,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import BpostConfigEntry
-from .const import DOMAIN
-from .coordinator import BpostCoordinator
+from .const import CONF_SOURCE, DOMAIN, SOURCE_ACCOUNT, ParcelStatus
 from .device import ATTRIBUTION, build_device_info
-from .parcels import parse_iso
+from .tracking.coordinator import BpostCoordinator
+from .tracking.parcels import parse_iso
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +29,17 @@ _LOGGER = logging.getLogger(__name__)
 # update throttling adds nothing here.
 PARALLEL_UPDATES = 0
 
+
+def _bucket(coordinator: Any, name: str) -> list[dict]:
+    """Read a DPD/PostNL-style bucket, retaining legacy tracking support."""
+    data = coordinator.data or []
+    if isinstance(data, dict):
+        return data.get(name, [])
+    if name == "incoming_active":
+        return data
+    if name == "incoming_delivered":
+        return getattr(coordinator, "delivered", [])
+    return []
 
 
 async def async_setup_entry(
@@ -43,7 +54,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data.coordinator
 
     current_barcodes: set[str] = {
-        p.get("barcode", "") for p in coordinator.data or []
+        p.get("barcode", "") for p in _bucket(coordinator, "incoming_active")
     }
     entry_id = entry.entry_id
 
@@ -55,8 +66,11 @@ async def async_setup_entry(
     non_parcel_unique_ids = {
         f"{entry_id}_incoming_parcels",
         f"{entry_id}_next_delivery",
+        f"{entry_id}_awaiting_pickup",
         f"{entry_id}_delivered_parcels",
         f"{entry_id}_last_update",
+        f"{entry_id}_outgoing_parcels",
+        f"{entry_id}_outgoing_delivered_parcels",
     }
     for entity_entry in er.async_entries_for_config_entry(registry, entry_id):
         if (
@@ -73,12 +87,16 @@ async def async_setup_entry(
             coordinator, entry, async_add_entities, current_barcodes
         ),
     ]
-    for parcel in coordinator.data or []:
+    for parcel in _bucket(coordinator, "incoming_active"):
         entities.append(
             BpostParcelSensor(coordinator, entry, parcel.get("barcode", ""))
         )
     entities.append(BpostNextDeliverySensor(coordinator, entry))
+    entities.append(BpostAwaitingPickupSensor(coordinator, entry))
     entities.append(BpostDeliveredParcelsSensor(coordinator, entry))
+    if entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT:
+        entities.append(BpostOutgoingParcelsSensor(coordinator, entry))
+        entities.append(BpostOutgoingDeliveredParcelsSensor(coordinator, entry))
     entities.append(BpostLastUpdateSensor(coordinator, entry))
 
     async_add_entities(entities)
@@ -118,16 +136,17 @@ class BpostIncomingParcelsSensor(
     @property
     def native_value(self) -> int:
         """Return the native value of the sensor."""
-        return len(self.coordinator.data or [])
+        return len(_bucket(self.coordinator, "incoming_active"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
-        return {"parcels": self.coordinator.data or []}
+        return {"parcels": _bucket(self.coordinator, "incoming_active")}
 
     def _handle_coordinator_update(self) -> None:
         current_barcodes: set[str] = {
-            p.get("barcode", "") for p in (self.coordinator.data or [])
+            p.get("barcode", "")
+            for p in _bucket(self.coordinator, "incoming_active")
         }
 
         new_barcodes = current_barcodes - self._known_barcodes
@@ -171,7 +190,7 @@ class BpostParcelSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
         self._attr_device_info = build_device_info(entry)
 
     def _get_parcel(self) -> dict[str, Any] | None:
-        for parcel in self.coordinator.data or []:
+        for parcel in _bucket(self.coordinator, "incoming_active"):
             if parcel.get("barcode") == self._barcode:
                 return parcel
         return None
@@ -209,7 +228,7 @@ class BpostNextDeliverySensor(
 
     def _delivery_moments(self) -> list[tuple[datetime, dict]]:
         result: list[tuple[datetime, dict]] = []
-        for parcel in self.coordinator.data or []:
+        for parcel in _bucket(self.coordinator, "incoming_active"):
             moment = parse_iso(parcel.get("planned_from"))
             if moment is None:
                 if parcel.get("planned_from"):
@@ -262,12 +281,103 @@ class BpostDeliveredParcelsSensor(
     @property
     def native_value(self) -> int:
         """Return the native value of the sensor."""
-        return len(self.coordinator.delivered)
+        return len(_bucket(self.coordinator, "incoming_delivered"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the extra state attributes."""
-        return {"parcels": self.coordinator.delivered}
+        return {"parcels": _bucket(self.coordinator, "incoming_delivered")}
+
+
+class BpostAwaitingPickupSensor(CoordinatorEntity, SensorEntity):
+    """Incoming parcels that have arrived at a pickup point.
+
+    The count is deliberately zero until a parcel's canonical status is
+    ``at_pickup_point``. It is not a count of parcels merely destined for a
+    pickup point, so it tells the user when collection is actually possible.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "awaiting_pickup"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_attribution = ATTRIBUTION
+    _unrecorded_attributes = frozenset({"parcels"})
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        """Initialise the awaiting-pickup summary sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_awaiting_pickup"
+        self._attr_device_info = build_device_info(entry)
+
+    def _parcels(self) -> list[dict]:
+        return [
+            parcel
+            for parcel in _bucket(self.coordinator, "incoming_active")
+            if parcel.get("pickup")
+            and parcel.get("status") is ParcelStatus.AT_PICKUP_POINT
+        ]
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of parcels ready for collection."""
+        return len(self._parcels())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the ready-to-collect parcels."""
+        return {"parcels": self._parcels()}
+
+
+class BpostOutgoingParcelsSensor(CoordinatorEntity, SensorEntity):
+    """Summary sensor for active outgoing account parcels."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "outgoing_parcels"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_attribution = ATTRIBUTION
+    _unrecorded_attributes = frozenset({"parcels"})
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        """Initialise the account-only outgoing summary."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_outgoing_parcels"
+        self._attr_device_info = build_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of active sender parcels."""
+        return len(_bucket(self.coordinator, "outgoing_active"))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return active sender parcels."""
+        return {"parcels": _bucket(self.coordinator, "outgoing_active")}
+
+
+class BpostOutgoingDeliveredParcelsSensor(CoordinatorEntity, SensorEntity):
+    """Summary sensor for delivered outgoing account parcels."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "outgoing_delivered_parcels"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_attribution = ATTRIBUTION
+    _unrecorded_attributes = frozenset({"parcels"})
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        """Initialise the delivered sender summary."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_outgoing_delivered_parcels"
+        self._attr_device_info = build_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of retained delivered sender parcels."""
+        return len(_bucket(self.coordinator, "outgoing_delivered"))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return delivered sender parcels."""
+        return {"parcels": _bucket(self.coordinator, "outgoing_delivered")}
 
 
 class BpostLastUpdateSensor(

@@ -17,7 +17,16 @@
       "next_delivery": {
         "default": "mdi:clock-fast"
       },
+      "awaiting_pickup": {
+        "default": "mdi:store-clock"
+      },
       "delivered_parcels": {
+        "default": "mdi:package-variant"
+      },
+      "outgoing_parcels": {
+        "default": "mdi:package-variant-closed"
+      },
+      "outgoing_delivered_parcels": {
         "default": "mdi:package-variant"
       },
       "last_update": {

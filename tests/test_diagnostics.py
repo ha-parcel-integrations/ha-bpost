@@ -41,6 +41,8 @@ async def test_diagnostics_redacts_and_counts(hass):
     assert result["counts"] == {
         "incoming_active": 1,
         "delivered": 0,
+        "outgoing_active": 0,
+        "outgoing_delivered": 0,
         "skipped_from_fetch": 0,
     }
     assert result["polling"] == {

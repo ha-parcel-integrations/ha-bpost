@@ -19,8 +19,10 @@ def reset_one_shot_warnings():
     without this a test's one-shot-warning assertion would depend on which
     test already triggered that status/ETA/deliveryPoint sighting first.
     """
-    from custom_components.bpost import parcels
+    from custom_components.bpost.account import parcels as account_parcels
+    from custom_components.bpost.tracking import parcels
 
+    account_parcels._warned_statuses.clear()
     parcels._unmapped_statuses_logged.clear()
     parcels._echoed_barcode_mismatches_logged.clear()
     parcels._eta_first_sighting_warned = False

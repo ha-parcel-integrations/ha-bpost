@@ -17,7 +17,7 @@ from custom_components.bpost.const import (
     KNOWN_CAPABILITIES,
     ParcelStatus,
 )
-from custom_components.bpost.parcels import (
+from custom_components.bpost.tracking.parcels import (
     apply_delivered_filter,
     build_history,
     map_parcel_status,
@@ -63,10 +63,17 @@ def test_map_parcel_status_missing_is_unknown():
     assert map_parcel_status("") == ParcelStatus.UNKNOWN
 
 
-def test_map_parcel_status_prefix_match_example_from_plan(caplog):
-    """An unseen method suffix prefix-matches: out_for_delivery_byBike -> out_for_delivery."""
-    assert map_parcel_status("out_for_delivery_byBike") == ParcelStatus.OUT_FOR_DELIVERY
+def test_map_parcel_status_prefix_matches_an_unseen_round_mode(caplog):
+    """An unseen method suffix prefix-matches: out_for_delivery_* -> out_for_delivery."""
+    assert map_parcel_status("out_for_delivery_byDrone") == ParcelStatus.OUT_FOR_DELIVERY
     assert "prefix match" in caplog.text
+
+
+def test_every_confirmed_round_mode_is_an_exact_hit(caplog):
+    """The five documented round modes must not need the prefix fallback."""
+    for mode in ("onFoot", "byBike", "byCar", "byEbike", "byECar"):
+        assert map_parcel_status(f"out_for_delivery_{mode}") == ParcelStatus.OUT_FOR_DELIVERY
+    assert "prefix match" not in caplog.text
 
 
 def test_map_parcel_status_prefix_match_on_delivered_family(caplog):
@@ -83,9 +90,56 @@ def test_map_parcel_status_exact_hit_does_not_warn(caplog):
 
 
 def test_map_parcel_status_completely_unmapped_is_unknown_and_warns(caplog):
-    assert map_parcel_status("on_the_way_to_a_bpost_facility") == ParcelStatus.UNKNOWN
+    assert map_parcel_status("teleported_to_orbit") == ParcelStatus.UNKNOWN
     assert "issues/new" in caplog.text
     assert "prefix match" not in caplog.text
+
+
+def test_known_process_step_wins_over_the_flattened_name(caplog):
+    """bpost's own code is authoritative: it resolves exactly and silently,
+    even where the name beside it would only prefix-match."""
+    assert (
+        map_parcel_status(
+            "available_at_a_shop_somewhere",
+            known_process_step="AVAILABLE_IN_SHOP",
+        )
+        == ParcelStatus.AT_PICKUP_POINT
+    )
+    assert caplog.text == ""
+
+
+def test_flattened_name_resolves_against_bpost_own_vocabulary(caplog):
+    """``activeStep.name`` is the same vocabulary with the case dropped, so a
+    name no fixture has shown us still resolves without a prefix guess."""
+    assert map_parcel_status("available_in_shop") == ParcelStatus.AT_PICKUP_POINT
+    assert caplog.text == ""
+
+
+def test_unknown_known_process_step_warns_and_falls_back_to_the_name(caplog):
+    """A code bpost added after this release must be reportable, and must not
+    cost us the status the name beside it still resolves to."""
+    assert (
+        map_parcel_status("delivered", known_process_step="DELIVERED_BY_DRONE")
+        == ParcelStatus.DELIVERED
+    )
+    assert "knownProcessStep=DELIVERED_BY_DRONE" in caplog.text
+
+
+def test_normalize_publishes_known_process_step_as_raw_status():
+    parcel = _normalize(
+        item(known_process_step="OUT_FOR_DELIVERY_HOME", active_step_name="out_for_delivery_byCar")
+    )
+    assert parcel["raw_status"] == "OUT_FOR_DELIVERY_HOME"
+    assert parcel["status"] == ParcelStatus.OUT_FOR_DELIVERY
+
+
+def test_the_two_sources_share_one_status_vocabulary():
+    """The account route's map *is* the tracking route's map — a regression
+    here is the two sources starting to drift apart again."""
+    from custom_components.bpost.account.parcels import STATUS_MAP as account_map
+    from custom_components.bpost.status import KNOWN_PROCESS_STEP_MAP
+
+    assert account_map is KNOWN_PROCESS_STEP_MAP
 
 
 def test_unmapped_status_warns_only_once(caplog):
@@ -245,15 +299,15 @@ def test_normalize_delivered_mailbox_drop():
     assert parcel["status"] == ParcelStatus.DELIVERED
     assert parcel["raw_status"] == "delivered"
     assert parcel["delivered"] is True
-    assert parcel["delivered_at"] == "2026-04-29T00:00:00+00:00"
+    assert parcel["delivered_at"] == "2026-04-29T13:06:00+00:00"
     assert parcel["planned_from"] is None
     assert parcel["planned_to"] is None
     assert parcel["url"] == (
         "https://track.bpost.cloud/btr/web/#/search"
         f"?lang=en&itemCode={BARCODE}&postalCode={POSTAL_CODE}"
     )
-    assert parcel["weight"] is None
-    assert parcel["dimensions"] is None
+    assert parcel["weight"] == 1.72
+    assert parcel["dimensions"]["text"] == "41.5 x 21.5 x 51 cm"
     assert parcel["pickup"] is False
     assert parcel["pickup_point"] is None
 
@@ -267,7 +321,7 @@ def test_delivered_is_never_derived_from_the_status_name(factory):
     """
     parcel = _normalize(factory())
     assert parcel["delivered"] is True
-    assert parcel["delivered_at"] == "2026-04-29T00:00:00+00:00"
+    assert parcel["delivered_at"] == "2026-04-29T13:06:00+00:00"
 
 
 def test_normalize_history_is_opt_in():
@@ -411,7 +465,7 @@ def test_normalize_raw_omits_round_status_key_when_absent():
 
 
 def test_normalize_url_requires_both_barcode_and_postal_code():
-    from custom_components.bpost.parcels import tracking_url
+    from custom_components.bpost.tracking.parcels import tracking_url
 
     assert tracking_url(None, "1000", "en") is None
     assert tracking_url("ABC", None, "en") is None
@@ -420,9 +474,10 @@ def test_normalize_url_requires_both_barcode_and_postal_code():
     )
 
 
-def test_in_transit_is_completely_unmapped():
+def test_in_transit_resolves_and_publishes_bpost_own_code():
     parcel = _normalize(in_transit_item())
-    assert parcel["status"] == ParcelStatus.UNKNOWN
+    assert parcel["status"] == ParcelStatus.IN_TRANSIT
+    assert parcel["raw_status"] == "ON_THE_WAY"
 
 
 def test_parcel_key_is_the_barcode_alone():
@@ -494,3 +549,32 @@ def test_delivered_filter_by_count():
 def test_delivered_filter_keeps_unparseable_timestamp():
     parcels = [{"barcode": "WEIRD", "delivered_at": "nonsense"}]
     assert apply_delivered_filter(parcels, _entry("days", 7)) == parcels
+
+
+def test_delivered_at_keeps_the_time_of_day_and_falls_back_to_midnight():
+    """``actualDeliveryTime`` carries a ``time`` on a real delivery."""
+    with_time = _normalize(item(delivered=True, delivered_day="2026-04-29"))
+    assert with_time["delivered_at"] == "2026-04-29T13:06:00+00:00"
+
+    without = _normalize(
+        item(delivered=True, delivered_day="2026-04-29", delivered_time=None)
+    )
+    assert without["delivered_at"] == "2026-04-29T00:00:00+00:00"
+
+
+def test_weight_and_dimensions_come_off_the_public_tracker_too():
+    """Both fields are real on this route — they were hardcoded None before."""
+    parcel = _normalize(item())
+    assert parcel["weight"] == 1.72
+    assert parcel["dimensions"] == {
+        "length": 41.5,
+        "width": 21.5,
+        "height": 51.0,
+        "text": "41.5 x 21.5 x 51 cm",
+    }
+
+
+def test_receiver_is_published_when_the_postcode_unlocked_it():
+    """bpost withholds every addressee field unless the request carried a postcode."""
+    assert _normalize(item())["receiver"] == "Example Receiver"
+    assert _normalize(item(receiver=None))["receiver"] is None
