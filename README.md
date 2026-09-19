@@ -7,12 +7,7 @@
 
 > 💬 Questions or feedback? Join the discussion on the [Home Assistant community](https://community.home-assistant.io/t/packages-postnl-dhl-nl-dpd-and-gls-parcel-integration/112433/).
 
-A custom Home Assistant integration that tracks your [bpost](https://track.bpost.cloud/btr/web/#/search) (Belgium) parcels. Choose either tracking codes with a delivery postal code, or the experimental My bpost account inbox.
-
-> **My bpost account beta.** The optional account inbox uses bpost's mobile
-> API, so it may need an integration update if bpost tightens its app
-> compatibility requirements. It stores rotating access tokens, never your
-> password.
+A custom Home Assistant integration that tracks your [bpost](https://track.bpost.cloud/btr/web/#/search) (Belgium) parcels. Choose either tracking codes with a delivery postal code, or your My bpost account inbox.
 
 Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) family: it publishes the same canonical parcel format, statuses and events as the other carrier integrations, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
 
@@ -39,7 +34,7 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 ## Features
 
 - Track any number of bpost parcels by tracking code — no account needed, one hub per delivery postal code
-- Experimental My bpost account inbox, with one-time password login and automatic parcel discovery; the password is never stored
+- My bpost account inbox, with one-time password login and automatic parcel discovery; the password is never stored
 - Per-parcel sensor with the canonical status (`out_for_delivery` / `delivered` / `unknown` / …), the carrier's own status text, the expected delivery window (when bpost reports one) and a tracking deep-link
 - Summary sensors: incoming parcels, next delivery, recently delivered parcels,
   plus outgoing and delivered-outgoing parcels for account entries
@@ -72,7 +67,7 @@ Copy `custom_components/bpost` into your `config/custom_components/` folder and 
 
 ## Configuration
 
-Add the integration via **Settings → Devices & Services → Add Integration → bpost**, then choose **Tracking codes** or **Account (automatic import)**. Tracking codes use the delivery postal code as the hub default. Account support is experimental because it depends on bpost's mobile API; it stores rotating tokens, never your password.
+Add the integration via **Settings → Devices & Services → Add Integration → bpost**, then choose **Tracking codes** or **Account (automatic import)**. Tracking codes use the delivery postal code as the hub default. The account route stores rotating tokens, never your password.
 
 Then add parcels via the integration's **Configure** dialog, the [`bpost.track_parcel`](#services) service, or a [dashboard button](examples/dashboards/add_parcel_card.yaml) — just the tracking code; the postal code comes from the hub.
 
