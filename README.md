@@ -88,9 +88,32 @@ Open **Configure** on the integration entry:
 Changes apply immediately, no restart.
 
 Polling isn't one of these settings: the integration polls on a dynamic,
-status-driven schedule (quiet overnight window, faster when a parcel is out
-for delivery, stopped entirely once nothing is left to track) with nothing to
-configure. See [CLAUDE.md](CLAUDE.md) for the details.
+status-driven schedule with nothing to configure.
+
+## Dynamic polling
+
+Polling isn't a setting here — the integration adjusts its own cadence to
+what your tracked parcels are actually doing:
+
+- **Quiet hours** — no polling between 00:00–06:00 local time, aside from one
+  catch-up check at each end of that window (around midnight and around 6
+  AM), so an overnight update is never missed.
+- **Hot (every 15 minutes)** — while any tracked parcel is out for delivery
+  today, starting an hour before its delivery window opens (or immediately if
+  no window is known yet — for a tracking-code hub this is the fallback that
+  fires in practice, since bpost's public tracker has never reported a
+  delivery window; the account route can report a real one from your My
+  bpost inbox).
+- **Normal (every 45 minutes)** — for anything else still on its way.
+- **Fully paused (tracking-code hubs)** — once every tracked parcel in that
+  hub has been delivered, or nothing is tracked in it, that hub's polling
+  stops until you add a parcel back (adding one always triggers an immediate
+  check, regardless of the pause).
+- **Never fully stops (account entries)** — with nothing hot or in transit,
+  an account entry keeps polling at the normal cadence, since that's also how
+  a new parcel in your inbox gets discovered.
+- A small, fixed per-hub offset is added on top, so not every bpost hub out
+  there polls at exactly the same second.
 
 ## Removal
 
