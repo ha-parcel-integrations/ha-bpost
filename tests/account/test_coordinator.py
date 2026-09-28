@@ -1,4 +1,5 @@
 """Tests for account inbox polling."""
+from datetime import date, timedelta
 from unittest.mock import AsyncMock
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -7,6 +8,9 @@ from custom_components.bpost.account.client import BpostAccountApiError
 from custom_components.bpost.account.coordinator import BpostAccountCoordinator
 from custom_components.bpost.account.parcels import is_outgoing
 from custom_components.bpost.const import DOMAIN, ParcelStatus
+
+# Relative so the delivered-retention filter never ages the fixture out.
+RECENT_DAY = (date.today() - timedelta(days=1)).isoformat()
 
 
 async def test_empty_account_inbox_stays_available_and_keeps_polling(hass):
@@ -47,7 +51,7 @@ async def test_account_coordinator_returns_the_standard_four_buckets(hass):
             "itemCode": "DONE",
             "userType": "SENDER",
             "currentStatus": "DELIVERED_TO_SENDER",
-            "actualDeliveryTime": {"day": "2026-09-19", "time": "12:00"},
+            "actualDeliveryTime": {"day": RECENT_DAY, "time": "12:00"},
         },
     ]
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
@@ -164,7 +168,7 @@ async def test_account_incoming_delivery_fires_dedicated_event_only(hass):
                 "itemCode": "IN",
                 "userType": "RECEIVER",
                 "currentStatus": "DELIVERED_AT_HOME",
-                "actualDeliveryTime": {"day": "2026-09-19", "time": "12:00"},
+                "actualDeliveryTime": {"day": RECENT_DAY, "time": "12:00"},
             }
         ],
     ]
