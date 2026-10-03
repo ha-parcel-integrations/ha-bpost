@@ -46,7 +46,11 @@ async def async_setup_entry(
 
     @callback
     def _sync_letters() -> None:
-        current_ids = {letter["id"] for letter in coordinator.letters}
+        current_ids = {
+            letter["id"]
+            for letter in coordinator.letters
+            if (coordinator.letter_image(letter["id"]) or (None, None))[1]
+        }
         new_ids = current_ids - known_ids
         if new_ids:
             async_add_entities(

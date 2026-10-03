@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_INCLUDE_HISTORY,
@@ -97,7 +98,7 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
 
     async def _async_update_letters(self) -> None:
         """Refresh letters; a failure keeps the previous list and the parcels."""
-        today = date.today()
+        today = dt_util.now().date()
         try:
             images = await self._client.async_get_letters(
                 (today - timedelta(days=LETTER_WINDOW_DAYS)).isoformat(),

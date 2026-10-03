@@ -59,6 +59,13 @@ async def test_one_image_per_letter_and_gone_letters_are_removed(hass):
     assert [e.unique_id for e in _letter_entities(hass, entry)] == [f"{entry.entry_id}_letter_image_ITEM-NEW"]
 
 
+async def test_a_letter_without_a_scan_gets_no_image_entity(hass):
+    without_scan = {"2026-10-03": [{**LETTERS_IMAGES["2026-10-03"][0], "imageUrl": None}]}
+    entry = await _setup_account(hass, without_scan)
+    assert _letter_entities(hass, entry) == []
+    assert len(entry.runtime_data.coordinator.letters) == 1
+
+
 async def test_tracking_entries_get_no_image_entities(hass):
     from custom_components.bpost.image import async_setup_entry
 
