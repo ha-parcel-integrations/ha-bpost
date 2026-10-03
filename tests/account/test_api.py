@@ -190,3 +190,34 @@ async def test_letter_image_failure_raises():
     with pytest.raises(BpostAccountApiError):
         await BpostAccountClient(session).async_get_letter_image("https://images.example.test/a.jpg")
 
+
+@pytest.mark.parametrize("payload", [{}, {"response": {"accessToken": "a"}}])
+async def test_login_without_a_token_pair_is_an_api_error(payload):
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(return_value=payload)
+    with pytest.raises(BpostAccountApiError):
+        await client.async_login("a@example.test", "password")
+
+
+async def test_rejection_with_an_unreadable_body_still_requires_reauth():
+    client, _ = _client(_Response(401, invalid_json=True))
+    with pytest.raises(BpostAccountReauthRequired):
+        await client._post("parcel/getparcelslist", {})
+
+
+@pytest.mark.parametrize(
+    ("responses", "expected"),
+    [
+        ([{"response": {"items": [{"Status": "ACTIVE"}]}}], []),
+        ([{"response": {"items": "nope"}}], BpostAccountApiError),
+        ([{"response": {"items": [{"itemCode": "A"}]}}, {"response": None}], BpostAccountApiError),
+    ],
+)
+async def test_inbox_shapes_without_usable_items(responses, expected):
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(side_effect=responses)
+    if expected == []:
+        assert await client.async_get_parcel_summaries() == []
+    else:
+        with pytest.raises(expected):
+            await client.async_get_parcel_summaries()
