@@ -68,8 +68,6 @@ TO_REDACT = {
     # Mail Ahead: a letter's image link opens its scan without credentials.
     "imageUrl",
     "imageRefId",
-    "image_url",
-    "image_ref",
     "trackingId",
 }
 

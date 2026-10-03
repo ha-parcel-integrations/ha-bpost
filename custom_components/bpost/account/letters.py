@@ -2,10 +2,6 @@
 
 Letters have no tracking status or canonical parcel shape, so they live apart
 from ``parcels.py``. No I/O and no Home Assistant objects.
-
-A letter's image link opens the scan without any credentials, so it is kept
-under private keys that ``public_letter`` strips: it must never reach an
-attribute, an event, diagnostics or a log line.
 """
 from __future__ import annotations
 
@@ -15,8 +11,6 @@ from typing import Any
 from ..status import NEW_ISSUE_URL
 
 _LOGGER = logging.getLogger(__name__)
-
-PRIVATE_KEYS = frozenset({"image_url", "image_ref"})
 
 _first_sighting_warned = False
 _unexpected_entry_warned = False
@@ -83,16 +77,10 @@ def extract_letters(images: Any) -> list[dict[str, Any]]:
                 "date": day,
                 "planned_delivery": raw.get("plannedDistributionDate"),
                 "sender": sender.get("name") if isinstance(sender, dict) else None,
-                "image_url": raw.get("imageUrl"),
-                "image_ref": raw.get("imageRefId"),
+                "raw": raw,
             }
     return sorted(
         letters.values(),
         key=lambda letter: (str(letter["planned_delivery"] or letter["date"]), letter["id"]),
         reverse=True,
     )
-
-
-def public_letter(letter: dict[str, Any]) -> dict[str, Any]:
-    """Return the letter without the fields that open its scan."""
-    return {key: value for key, value in letter.items() if key not in PRIVATE_KEYS}

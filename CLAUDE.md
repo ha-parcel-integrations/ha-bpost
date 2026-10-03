@@ -155,11 +155,13 @@ PostNL's letters model: a `letters` sensor, one `image` entity per letter,
 and a `bpost_letter_announced` event (also a device trigger) suppressed on
 the first refresh. Letters are not parcels: no canonical shape, no
 aggregator onboarding. Load-bearing choices:
-- **A letter's image link opens the scan without credentials**, so it is a
-  secret. It lives only under the private keys `account/letters.py` strips
-  (`public_letter`); the sensor, the image entity's attributes, the event
-  and diagnostics all see the public dict. `image.py` fetches the bytes
-  server-side and never sets `image_url`. Keep it that way.
+- **Each letter carries `raw`, the untouched bpost record** — including the
+  image link, which opens the scan without credentials. That follows the
+  suite's raw rule and the parcels' own `safeplacePicture`: privacy lives in
+  diagnostics redaction only (`imageUrl`, `imageRefId`, `trackingId`,
+  `sender`). An earlier build kept the link out of `raw`; reversed
+  2026-10-03 as a stricter rule than parcels get. `image.py` still fetches
+  the bytes server-side rather than setting `image_url`.
 - **A new scan is detected on the image reference, not the URL** — a signed
   link may change every poll without the scan changing.
 - **A failed letters fetch keeps the previous list and the parcel update**;

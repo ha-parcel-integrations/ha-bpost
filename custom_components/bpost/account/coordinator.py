@@ -27,7 +27,7 @@ from ..events import (
 )
 from ..tracking.parcels import apply_delivered_filter, resolve_lang, sort_parcels_by_ts
 from .client import BpostAccountApiError, BpostAccountClient, BpostAccountReauthRequired
-from .letters import extract_letters, public_letter
+from .letters import extract_letters
 from .parcels import is_outgoing, normalize_account_parcel
 
 _LOGGER = logging.getLogger(__name__)
@@ -82,15 +82,8 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
 
     @property
     def letters(self) -> list[dict[str, Any]]:
-        """Mail Ahead letters, without the fields that open their scans."""
-        return [public_letter(letter) for letter in self._letters]
-
-    def letter_image(self, letter_id: str) -> tuple[str | None, str | None] | None:
-        """Return a letter's ``(image_ref, image_url)``, or None once it is gone."""
-        for letter in self._letters:
-            if letter["id"] == letter_id:
-                return letter["image_ref"], letter["image_url"]
-        return None
+        """Mail Ahead letters, newest first."""
+        return self._letters
 
     async def async_fetch_letter_image(self, url: str) -> tuple[bytes, str | None]:
         """Fetch a letter scan through the account client."""
@@ -121,7 +114,7 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
             if letter["id"] not in self._known_letter_ids:
                 self.hass.bus.async_fire(
                     f"{DOMAIN}_letter_announced",
-                    {**public_letter(letter), "carrier": "bpost", "device_id": self._device_id()},
+                    {**letter, "carrier": "bpost", "device_id": self._device_id()},
                 )
 
     def _fire_incoming_change_events(self, parcels: list[dict]) -> None:

@@ -47,8 +47,7 @@ async def test_one_image_per_letter_and_gone_letters_are_removed(hass):
         f"{entry.entry_id}_letter_image_ITEM-OLD",
     }
     state = hass.states.get(_letter_entities(hass, entry)[0].entity_id)
-    assert "image_url" not in state.attributes
-    assert all("sig=" not in str(value) for value in state.attributes.values())
+    assert state.attributes["raw"]["itemId"] in {"ITEM-NEW", "ITEM-OLD"}
 
     coordinator = entry.runtime_data.coordinator
     with patch(SUMMARIES, new=AsyncMock(return_value=[])), patch(
@@ -76,12 +75,16 @@ async def test_tracking_entries_get_no_image_entities(hass):
     add.assert_not_called()
 
 
-def _entity(hass, letters=None, image=("REF", "https://x.test/a.jpg")):
+def _letter(ref="REF", url="https://x.test/a.jpg"):
+    return {
+        "id": "ID", "date": "2026-10-03", "planned_delivery": "2026-10-03", "sender": None,
+        "raw": {"itemId": "ID", "imageRefId": ref, "imageUrl": url},
+    }
+
+
+def _entity(hass, letters=None):
     coordinator = MagicMock()
-    coordinator.letters = letters if letters is not None else [
-        {"id": "ID", "date": "2026-10-03", "planned_delivery": "2026-10-03", "sender": None}
-    ]
-    coordinator.letter_image.return_value = image
+    coordinator.letters = letters if letters is not None else [_letter()]
     coordinator.async_fetch_letter_image = AsyncMock(return_value=(b"png", "image/png"))
     entry = MagicMock()
     entry.entry_id = "e1"
@@ -104,12 +107,12 @@ async def test_a_new_signed_link_alone_does_not_refetch_but_a_new_scan_does(hass
     entity, coordinator = _entity(hass)
     entity.async_write_ha_state = MagicMock()
     await entity.async_image()
-    coordinator.letter_image.return_value = ("REF", "https://x.test/a.jpg?sig=new")
+    coordinator.letters = [_letter(url="https://x.test/a.jpg?sig=new")]
     entity._handle_coordinator_update()
     await entity.async_image()
     assert coordinator.async_fetch_letter_image.await_count == 1
     before = entity.image_last_updated
-    coordinator.letter_image.return_value = ("REF2", "https://x.test/b.jpg")
+    coordinator.letters = [_letter(ref="REF2", url="https://x.test/b.jpg")]
     entity._handle_coordinator_update()
     await entity.async_image()
     assert coordinator.async_fetch_letter_image.await_count == 2
@@ -121,12 +124,12 @@ async def test_fetch_failure_or_missing_link_returns_none(hass, caplog):
     coordinator.async_fetch_letter_image.side_effect = BpostAccountApiError("403")
     assert await entity.async_image() is None
     assert "x.test" not in caplog.text
-    entity, _ = _entity(hass, image=None)
+    entity, _ = _entity(hass, letters=[_letter(url=None)])
     assert await entity.async_image() is None
 
 
 async def test_letter_gone_makes_the_entity_unavailable(hass):
-    entity, _ = _entity(hass, letters=[], image=None)
+    entity, _ = _entity(hass, letters=[])
     assert entity.image_last_updated is not None
     assert entity.available is False
     assert entity.extra_state_attributes == {}

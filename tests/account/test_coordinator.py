@@ -254,13 +254,11 @@ def _letters_client(*letter_maps):
     return client
 
 
-async def test_letters_are_public_and_the_image_link_stays_internal(hass):
+async def test_letters_keep_their_raw_record_and_ask_a_30_day_window(hass):
     coordinator = BpostAccountCoordinator(hass, _letters_client(LETTERS_IMAGES), MockConfigEntry(domain=DOMAIN))
     await coordinator._async_update_data()
     assert [letter["id"] for letter in coordinator.letters] == ["ITEM-NEW", "ITEM-OLD"]
-    assert all("image_url" not in letter for letter in coordinator.letters)
-    assert coordinator.letter_image("ITEM-OLD") == ("REF-OLD", "https://images.example.test/old.jpg?sig=abc")
-    assert coordinator.letter_image("GONE") is None
+    assert coordinator.letters[1]["raw"] is LETTERS_IMAGES["2026-10-02"][0]
     window = coordinator._client.async_get_letters.await_args.args
     assert (date.fromisoformat(window[1]) - date.fromisoformat(window[0])).days == 29
 
@@ -279,7 +277,7 @@ async def test_letter_announced_fires_only_for_letters_new_since_last_poll(hass)
     await hass.async_block_till_done()
     assert [event.data["id"] for event in events] == ["ITEM-NEW"]
     assert events[0].data["carrier"] == "bpost"
-    assert "image_url" not in events[0].data
+    assert events[0].data["raw"] == LETTERS_IMAGES["2026-10-03"][0]
 
 
 async def test_letters_failure_keeps_parcels_and_the_previous_letters(hass, caplog):

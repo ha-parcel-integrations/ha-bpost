@@ -32,6 +32,12 @@ def _letter_day(letter: dict | None) -> datetime | None:
     return datetime.combine(day, time.min, tzinfo=timezone.utc)
 
 
+def _image(letter: dict | None) -> tuple[str | None, str | None]:
+    """Return the letter's ``(imageRefId, imageUrl)`` from its raw record."""
+    raw = (letter or {}).get("raw") or {}
+    return raw.get("imageRefId"), raw.get("imageUrl")
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: BpostConfigEntry,
@@ -49,7 +55,7 @@ async def async_setup_entry(
         current_ids = {
             letter["id"]
             for letter in coordinator.letters
-            if (coordinator.letter_image(letter["id"]) or (None, None))[1]
+            if _image(letter)[1]
         }
         new_ids = current_ids - known_ids
         if new_ids:
@@ -96,7 +102,7 @@ class BpostLetterImage(CoordinatorEntity[BpostAccountCoordinator], ImageEntity):
         self._attr_unique_id = f"{entry.entry_id}_letter_image_{letter_id}"
         self._attr_device_info = build_device_info(entry)
         self._attr_image_last_updated = _letter_day(self._letter()) or dt_util.utcnow()
-        self._image_ref = self._image()[0]
+        self._image_ref = _image(self._letter())[0]
         self._cached_bytes: bytes | None = None
         letter = self._letter() or {}
         self._attr_translation_placeholders = {
@@ -108,9 +114,6 @@ class BpostLetterImage(CoordinatorEntity[BpostAccountCoordinator], ImageEntity):
             (letter for letter in self.coordinator.letters if letter["id"] == self._letter_id),
             None,
         )
-
-    def _image(self) -> tuple[str | None, str | None]:
-        return self.coordinator.letter_image(self._letter_id) or (None, None)
 
     @property
     def available(self) -> bool:
@@ -124,7 +127,7 @@ class BpostLetterImage(CoordinatorEntity[BpostAccountCoordinator], ImageEntity):
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        image_ref = self._image()[0]
+        image_ref = _image(self._letter())[0]
         if image_ref != self._image_ref:
             # A signed link may change every poll; only a new scan invalidates.
             self._image_ref = image_ref
@@ -133,10 +136,10 @@ class BpostLetterImage(CoordinatorEntity[BpostAccountCoordinator], ImageEntity):
         super()._handle_coordinator_update()
 
     async def async_image(self) -> bytes | None:
-        """Return the scan, fetched server-side so its link never leaves HA."""
+        """Return the scan bytes for HA's authenticated image proxy."""
         if self._cached_bytes is not None:
             return self._cached_bytes
-        url = self._image()[1]
+        url = _image(self._letter())[1]
         if not url:
             return None
         try:

@@ -1,7 +1,7 @@
 """Tests for Mail Ahead letter parsing."""
 import logging
 
-from custom_components.bpost.account.letters import extract_letters, public_letter
+from custom_components.bpost.account.letters import extract_letters
 
 from .letters_payload import LETTERS_IMAGES
 
@@ -14,16 +14,15 @@ def test_letters_are_flattened_newest_first():
         "date": "2026-10-02",
         "planned_delivery": "2026-10-02",
         "sender": "Example Bank",
-        "image_url": "https://images.example.test/old.jpg?sig=abc",
-        "image_ref": "REF-OLD",
+        "raw": LETTERS_IMAGES["2026-10-02"][0],
     }
     assert letters[0]["sender"] is None
 
 
-def test_public_letter_never_carries_the_image_link():
-    letter = public_letter(extract_letters(LETTERS_IMAGES)[0])
-    assert "image_url" not in letter
-    assert "image_ref" not in letter
+def test_raw_is_the_untouched_record():
+    letter = extract_letters(LETTERS_IMAGES)[1]
+    assert letter["raw"] is LETTERS_IMAGES["2026-10-02"][0]
+    assert letter["raw"]["imageUrl"] == "https://images.example.test/old.jpg?sig=abc"
 
 
 def test_unsubscribed_or_malformed_maps_are_empty():

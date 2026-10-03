@@ -134,7 +134,7 @@ Standard HA removal applies: **Settings → Devices & Services → bpost → ⋮
 | `sensor.bpost_delivered_parcels` | Recently delivered parcels (see the retention option) |
 | `sensor.bpost_outgoing_parcels` | Active sender parcels; account entries only |
 | `sensor.bpost_outgoing_delivered_parcels` | Recently delivered sender parcels; account entries only |
-| `sensor.bpost_letters` | Mail Ahead letters from the last 30 days, listed under the `letters` attribute (`id`, `date`, `planned_delivery`, `sender`); account entries only |
+| `sensor.bpost_letters` | Mail Ahead letters from the last 30 days, listed under the `letters` attribute (`id`, `date`, `planned_delivery`, `sender`, and bpost's untouched record as `raw`); account entries only |
 | `image.bpost_letter_<sender or date>` | One per letter: the scan of the envelope, fetched by Home Assistant and served through its own image proxy; account entries only |
 | `sensor.bpost_last_successful_update` | Diagnostic: when bpost was last polled successfully |
 
