@@ -137,8 +137,8 @@ forever and never prompted (fixed 2026-10-03; `test_init.py` guards both the
 setup and the running path). A rejected API key or app version is a *compatibility*
 failure, deliberately not a reauth prompt — asking every user to log in again
 would not fix it. The transport constants in `const.py`
-(`ACCOUNT_API_KEY`, `ACCOUNT_APP_VERSION`) are shared app material, not user
-secrets, and must never reach the UI, diagnostics or a log line; `email` and
+(`ACCOUNT_API_KEY`, `ACCOUNT_APP_VERSION`) must never reach the UI,
+diagnostics or a log line; `email` and
 both tokens are in `diagnostics.TO_REDACT`.
 
 **Account parcels are both incoming and outgoing.** `userType` decides;
