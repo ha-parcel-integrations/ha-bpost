@@ -48,6 +48,13 @@ CAPABILITIES_BY_VARIANT = {
     # and a newest-first event timeline. History remains opt-in as usual.
     "Account": frozenset({"weight", "dimensions", "delivery_window", "url", "history"}),
 }
+
+# Fields not confirmed yet — the docs site shows them as "awaiting data".
+# Move a field into the declaration above once a real parcel shows it.
+PENDING_CAPABILITIES_BY_VARIANT = {
+    "Tracking": frozenset({"pickup_point"}),
+    "Account": frozenset({"pickup_point"}),
+}
 CAPABILITIES = CAPABILITIES_BY_VARIANT["Tracking"]
 
 # Two keyless, unauthenticated JSON routes on track.bpost.cloud — no headers,
