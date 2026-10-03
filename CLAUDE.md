@@ -130,7 +130,11 @@ back to `entry.data`; the client refreshes on its own and calls back to
 persist the new pair. A rejected refresh raises into HA's reauth flow, which
 re-asks only the password and keeps the entry's unique id
 (`account:<lowercased email>`, so the same mailbox cannot be added twice in
-different casing). A rejected API key or app version is a *compatibility*
+different casing). The account coordinator must translate
+`BpostAccountReauthRequired` into `ConfigEntryAuthFailed` itself — a bare
+client exception reaches HA as an "unexpected error", which retried setup
+forever and never prompted (fixed 2026-10-03; `test_init.py` guards both the
+setup and the running path). A rejected API key or app version is a *compatibility*
 failure, deliberately not a reauth prompt — asking every user to log in again
 would not fix it. The transport constants in `const.py`
 (`ACCOUNT_API_KEY`, `ACCOUNT_APP_VERSION`) are shared app material, not user
