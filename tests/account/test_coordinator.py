@@ -294,13 +294,20 @@ async def test_letters_failure_keeps_parcels_and_the_previous_letters(hass, capl
     assert "Mail Ahead" in caplog.text
 
 
-async def test_letters_reauth_is_not_swallowed(hass):
+async def test_a_rejected_token_starts_reauth_from_either_call(hass):
     import pytest
+    from homeassistant.exceptions import ConfigEntryAuthFailed
 
     coordinator = BpostAccountCoordinator(
         hass, _letters_client(BpostAccountReauthRequired("expired")), MockConfigEntry(domain=DOMAIN)
     )
-    with pytest.raises(BpostAccountReauthRequired):
+    with pytest.raises(ConfigEntryAuthFailed):
+        await coordinator._async_update_data()
+
+    client = AsyncMock()
+    client.async_get_parcel_summaries.side_effect = BpostAccountReauthRequired("expired")
+    coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
+    with pytest.raises(ConfigEntryAuthFailed):
         await coordinator._async_update_data()
 
 

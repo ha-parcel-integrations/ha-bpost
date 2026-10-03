@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -102,8 +103,8 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
                 (today - timedelta(days=LETTER_WINDOW_DAYS)).isoformat(),
                 today.isoformat(),
             )
-        except BpostAccountReauthRequired:
-            raise
+        except BpostAccountReauthRequired as err:
+            raise ConfigEntryAuthFailed("bpost account needs reauthentication") from err
         except BpostAccountApiError as err:
             _LOGGER.warning("Unable to update bpost Mail Ahead letters: %s", err)
             return
@@ -144,8 +145,8 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
     async def _async_update_data(self) -> dict[str, list[dict]]:
         try:
             summaries = await self._client.async_get_parcel_summaries()
-        except BpostAccountReauthRequired:
-            raise
+        except BpostAccountReauthRequired as err:
+            raise ConfigEntryAuthFailed("bpost account needs reauthentication") from err
         except BpostAccountApiError as err:
             raise UpdateFailed("Unable to update bpost account inbox") from err
 

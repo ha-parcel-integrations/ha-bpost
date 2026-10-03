@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .account.client import BpostAccountClient, BpostAccountReauthRequired
+from .account.client import BpostAccountClient
 from .account.coordinator import BpostAccountCoordinator
 from .const import (
     CONF_ACCESS_TOKEN,
@@ -68,11 +68,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> boo
     # cleanly (it logs a warning and half-sets-up the entry); doing the first
     # refresh here lets a transient failure fail the whole entry so HA retries
     # it with backoff.
-    try:
-        await coordinator.async_config_entry_first_refresh()
-    except BpostAccountReauthRequired as err:
-        from homeassistant.exceptions import ConfigEntryAuthFailed
-        raise ConfigEntryAuthFailed("bpost account needs reauthentication") from err
+    await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = BpostData(client=client, coordinator=coordinator)
 

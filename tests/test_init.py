@@ -138,3 +138,51 @@ async def test_options_update_applies_live_without_reload(hass):
 
     incoming = hass.states.get("sensor.bpost_1000_incoming_parcels")
     assert incoming.state == "2"
+
+
+def _account_entry(hass) -> MockConfigEntry:
+    from custom_components.bpost.const import CONF_EMAIL, CONF_SOURCE, SOURCE_ACCOUNT
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="account:me@example.test",
+        data={CONF_SOURCE: SOURCE_ACCOUNT, CONF_EMAIL: "me@example.test", "access_token": "a", "refresh_token": "r"},
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+_ACCOUNT = "custom_components.bpost.account.client.BpostAccountClient."
+
+
+def _reauth_flows(hass) -> list:
+    return [
+        flow for flow in hass.config_entries.flow.async_progress()
+        if flow["context"]["source"] == "reauth"
+    ]
+
+
+async def test_rejected_account_tokens_at_setup_start_reauth(hass):
+    from custom_components.bpost.account.client import BpostAccountReauthRequired
+
+    entry = _account_entry(hass)
+    with patch(_ACCOUNT + "async_get_parcel_summaries", new=AsyncMock(side_effect=BpostAccountReauthRequired("x"))):
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert len(_reauth_flows(hass)) == 1
+
+
+async def test_rejected_account_tokens_while_running_start_reauth(hass):
+    from custom_components.bpost.account.client import BpostAccountReauthRequired
+
+    entry = _account_entry(hass)
+    with patch(_ACCOUNT + "async_get_parcel_summaries", new=AsyncMock(return_value=[])), patch(
+        _ACCOUNT + "async_get_letters", new=AsyncMock(return_value={})
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    with patch(_ACCOUNT + "async_get_parcel_summaries", new=AsyncMock(side_effect=BpostAccountReauthRequired("x"))):
+        await entry.runtime_data.coordinator.async_refresh()
+        await hass.async_block_till_done()
+    assert len(_reauth_flows(hass)) == 1
