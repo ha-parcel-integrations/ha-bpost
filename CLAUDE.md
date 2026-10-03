@@ -133,7 +133,7 @@ re-asks only the password and keeps the entry's unique id
 different casing). The account coordinator must translate
 `BpostAccountReauthRequired` into `ConfigEntryAuthFailed` itself — a bare
 client exception reaches HA as an "unexpected error", which retried setup
-forever and never prompted (fixed 2026-10-03; `test_init.py` guards both the
+forever and never prompted (`test_init.py` guards both the
 setup and the running path). A rejected API key or app version is a *compatibility*
 failure, deliberately not a reauth prompt — asking every user to log in again
 would not fix it. The transport constants in `const.py`
