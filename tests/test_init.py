@@ -186,3 +186,16 @@ async def test_rejected_account_tokens_while_running_start_reauth(hass):
         await entry.runtime_data.coordinator.async_refresh()
         await hass.async_block_till_done()
     assert len(_reauth_flows(hass)) == 1
+
+
+async def test_rotated_account_tokens_are_persisted_on_the_entry(hass):
+    entry = _account_entry(hass)
+    with patch(_ACCOUNT + "async_get_parcel_summaries", new=AsyncMock(return_value=[])), patch(
+        _ACCOUNT + "async_get_letters", new=AsyncMock(return_value={})
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    await entry.runtime_data.client._token_callback({"access_token": "new-a", "refresh_token": "new-r"})
+    assert entry.data["access_token"] == "new-a"
+    assert entry.data["refresh_token"] == "new-r"
+    assert entry.data["email"] == "me@example.test"
