@@ -29,6 +29,7 @@ TRIGGER_EVENTS = {
     "parcel_delivery_time_changed": f"{DOMAIN}_parcel_delivery_time_changed",
     "outgoing_parcel_status_changed": f"{DOMAIN}_outgoing_parcel_status_changed",
     "outgoing_parcel_delivered": f"{DOMAIN}_outgoing_parcel_delivered",
+    "letter_announced": f"{DOMAIN}_letter_announced",
 }
 TRIGGER_TYPES = set(TRIGGER_EVENTS)
 

@@ -193,3 +193,28 @@ class BpostAccountClient:
         if isinstance(history, list):
             entries.extend(item for item in history if isinstance(item, dict))
         return entries
+
+    async def async_get_letters(self, from_date: str, to_date: str) -> dict[str, Any]:
+        """Return Mail Ahead letters as bpost's date-keyed map; unsubscribed is empty."""
+        body = {"appLang": "en", "fromDate": from_date, "toDate": to_date}
+        try:
+            payload = await self._post("mmt/retrieveImages", body)
+        except BpostAccountReauthRequired:
+            await self.async_refresh()
+            payload = await self._post("mmt/retrieveImages", body)
+        response = payload.get("response") if isinstance(payload, dict) else None
+        if not isinstance(response, dict):
+            raise BpostAccountApiError("unexpected letters response")
+        images = response.get("images")
+        if images is None:
+            return {}
+        if not isinstance(images, dict):
+            raise BpostAccountApiError("unexpected letters images")
+        return images
+
+    async def async_get_letter_image(self, url: str) -> tuple[bytes, str | None]:
+        """Fetch a letter scan; the link is self-contained and takes no headers."""
+        async with self._session.get(url) as response:
+            if response.status != 200:
+                raise BpostAccountApiError("letter image request failed", status_code=response.status)
+            return await response.read(), response.content_type

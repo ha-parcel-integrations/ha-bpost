@@ -116,7 +116,8 @@
       "parcel_registered": "A parcel was registered",
       "parcel_status_changed": "A parcel's status changed",
       "parcel_delivered": "A parcel was delivered",
-      "parcel_delivery_time_changed": "A parcel's expected delivery time changed"
+      "parcel_delivery_time_changed": "A parcel's expected delivery time changed",
+      "letter_announced": "A letter was announced"
     }
   },
   "entity": {
@@ -128,6 +129,11 @@
     "calendar": {
       "deliveries": {
         "name": "Deliveries"
+      }
+    },
+    "image": {
+      "letter_image": {
+        "name": "Letter {title}"
       }
     },
     "sensor": {
@@ -153,6 +159,10 @@
       "outgoing_delivered_parcels": {
         "name": "Outgoing delivered parcels",
         "unit_of_measurement": "parcels"
+      },
+      "letters": {
+        "name": "Letters",
+        "unit_of_measurement": "letters"
       },
       "last_update": {
         "name": "Last successful update"

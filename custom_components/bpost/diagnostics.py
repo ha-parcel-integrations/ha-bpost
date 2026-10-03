@@ -7,6 +7,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
 from . import BpostConfigEntry
+from .account.coordinator import BpostAccountCoordinator
 
 # Diagnostics are pasted into public issues, so redact anything that
 # identifies a person, an address or a specific parcel. Over-redacting is
@@ -64,6 +65,12 @@ TO_REDACT = {
     "address",
     "phone",
     "uuid",
+    # Mail Ahead: a letter's image link opens its scan without credentials.
+    "imageUrl",
+    "imageRefId",
+    "image_url",
+    "image_ref",
+    "trackingId",
 }
 
 
@@ -84,7 +91,7 @@ async def async_get_config_entry_diagnostics(
         outgoing_active = []
         outgoing_delivered = []
 
-    return {
+    diagnostics = {
         "entry_data": async_redact_data(dict(entry.data), TO_REDACT),
         "entry_options": async_redact_data(dict(entry.options), TO_REDACT),
         "counts": {
@@ -108,3 +115,7 @@ async def async_get_config_entry_diagnostics(
         "outgoing": async_redact_data(outgoing_active, TO_REDACT),
         "delivered_outgoing": async_redact_data(outgoing_delivered, TO_REDACT),
     }
+    if isinstance(coordinator, BpostAccountCoordinator):
+        diagnostics["counts"]["letters"] = len(coordinator.letters)
+        diagnostics["letters"] = async_redact_data(coordinator.letters, TO_REDACT)
+    return diagnostics

@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -24,7 +25,13 @@ from ..events import (
 )
 from ..tracking.parcels import apply_delivered_filter, resolve_lang, sort_parcels_by_ts
 from .client import BpostAccountApiError, BpostAccountClient, BpostAccountReauthRequired
+from .letters import extract_letters, public_letter
 from .parcels import is_outgoing, normalize_account_parcel
+
+_LOGGER = logging.getLogger(__name__)
+
+# bpost's own app asks for the same 30-day window.
+LETTER_WINDOW_DAYS = 29
 
 
 class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
@@ -34,7 +41,7 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
         """Initialise a continuously-polled account inbox coordinator."""
         super().__init__(
             hass,
-            logging.getLogger(__name__),
+            _LOGGER,
             config_entry=entry,
             name=f"{DOMAIN} account",
             update_interval=timedelta(minutes=MID_INTERVAL_MINUTES),
@@ -47,6 +54,10 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
         self._cached_device_id: str | None = None
         self._delivered_codes: set[str] = set()
         self.last_success_time: datetime | None = None
+        self._letters: list[dict[str, Any]] = []
+        # None until the first successful letters fetch, so letters already
+        # waiting when HA starts do not announce themselves.
+        self._known_letter_ids: set[str] | None = None
         self.current_tier_minutes: int | None = MID_INTERVAL_MINUTES
 
     @property
@@ -66,6 +77,50 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
         if device is not None:
             self._cached_device_id = device.id
         return self._cached_device_id
+
+    @property
+    def letters(self) -> list[dict[str, Any]]:
+        """Mail Ahead letters, without the fields that open their scans."""
+        return [public_letter(letter) for letter in self._letters]
+
+    def letter_image(self, letter_id: str) -> tuple[str | None, str | None] | None:
+        """Return a letter's ``(image_ref, image_url)``, or None once it is gone."""
+        for letter in self._letters:
+            if letter["id"] == letter_id:
+                return letter["image_ref"], letter["image_url"]
+        return None
+
+    async def async_fetch_letter_image(self, url: str) -> tuple[bytes, str | None]:
+        """Fetch a letter scan through the account client."""
+        return await self._client.async_get_letter_image(url)
+
+    async def _async_update_letters(self) -> None:
+        """Refresh letters; a failure keeps the previous list and the parcels."""
+        today = date.today()
+        try:
+            images = await self._client.async_get_letters(
+                (today - timedelta(days=LETTER_WINDOW_DAYS)).isoformat(),
+                today.isoformat(),
+            )
+        except BpostAccountReauthRequired:
+            raise
+        except BpostAccountApiError as err:
+            _LOGGER.warning("Unable to update bpost Mail Ahead letters: %s", err)
+            return
+        self._letters = extract_letters(images)
+        self._fire_letter_events()
+        self._known_letter_ids = {letter["id"] for letter in self._letters}
+
+    def _fire_letter_events(self) -> None:
+        """Fire ``bpost_letter_announced`` for letters not seen last time."""
+        if self._known_letter_ids is None:
+            return
+        for letter in self._letters:
+            if letter["id"] not in self._known_letter_ids:
+                self.hass.bus.async_fire(
+                    f"{DOMAIN}_letter_announced",
+                    {**public_letter(letter), "carrier": "bpost", "device_id": self._device_id()},
+                )
 
     def _fire_incoming_change_events(self, parcels: list[dict]) -> None:
         """Fire the receiver-side event set for this cycle's parcels."""
@@ -123,6 +178,8 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
         self._fire_incoming_change_events(seen_incoming)
         self._known_state = snapshot_states(seen_incoming)
         self._known_delivery_times = snapshot_delivery_times(seen_incoming)
+
+        await self._async_update_letters()
 
         self._delivered_codes = set()
         self.last_success_time = datetime.now(timezone.utc)

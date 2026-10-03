@@ -135,3 +135,14 @@ def test_last_update_sensor():
     coordinator.last_success_time = moment
     sensor = BpostLastUpdateSensor(coordinator, _entry())
     assert sensor.native_value == moment
+
+
+def test_letters_sensor_counts_and_lists_letters():
+    from custom_components.bpost.sensor import BpostLettersSensor
+
+    coordinator = MagicMock()
+    coordinator.letters = [{"id": "A"}, {"id": "B"}]
+    sensor = BpostLettersSensor(coordinator, _entry())
+    assert sensor.unique_id == "e1_letters"
+    assert sensor.native_value == 2
+    assert sensor.extra_state_attributes == {"letters": [{"id": "A"}, {"id": "B"}]}

@@ -71,6 +71,7 @@ async def async_setup_entry(
         f"{entry_id}_last_update",
         f"{entry_id}_outgoing_parcels",
         f"{entry_id}_outgoing_delivered_parcels",
+        f"{entry_id}_letters",
     }
     for entity_entry in er.async_entries_for_config_entry(registry, entry_id):
         if (
@@ -97,6 +98,7 @@ async def async_setup_entry(
     if entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT:
         entities.append(BpostOutgoingParcelsSensor(coordinator, entry))
         entities.append(BpostOutgoingDeliveredParcelsSensor(coordinator, entry))
+        entities.append(BpostLettersSensor(coordinator, entry))
     entities.append(BpostLastUpdateSensor(coordinator, entry))
 
     async_add_entities(entities)
@@ -378,6 +380,32 @@ class BpostOutgoingDeliveredParcelsSensor(CoordinatorEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return delivered sender parcels."""
         return {"parcels": _bucket(self.coordinator, "outgoing_delivered")}
+
+
+class BpostLettersSensor(CoordinatorEntity, SensorEntity):
+    """Account-only summary of Mail Ahead letters."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "letters"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_attribution = ATTRIBUTION
+    _unrecorded_attributes = frozenset({"letters"})
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        """Initialise the letters summary."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_letters"
+        self._attr_device_info = build_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of letters in bpost's 30-day window."""
+        return len(self.coordinator.letters)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the letters, without their image links."""
+        return {"letters": self.coordinator.letters}
 
 
 class BpostLastUpdateSensor(

@@ -6,7 +6,7 @@ from custom_components.bpost.device_trigger import (
 )
 
 
-async def test_get_triggers_returns_all_six(hass):
+async def test_get_triggers_returns_all_seven(hass):
     triggers = await async_get_triggers(hass, "device123")
     types = {t["type"] for t in triggers}
     assert types == {
@@ -16,6 +16,7 @@ async def test_get_triggers_returns_all_six(hass):
         "parcel_delivery_time_changed",
         "outgoing_parcel_status_changed",
         "outgoing_parcel_delivered",
+        "letter_announced",
     }
     for trigger in triggers:
         assert trigger["domain"] == DOMAIN

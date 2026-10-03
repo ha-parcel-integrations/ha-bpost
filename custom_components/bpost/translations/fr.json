@@ -116,7 +116,8 @@
       "parcel_registered": "Un colis a été enregistré",
       "parcel_status_changed": "Le statut d'un colis a changé",
       "parcel_delivered": "Un colis a été livré",
-      "parcel_delivery_time_changed": "L'heure de livraison prévue d'un colis a changé"
+      "parcel_delivery_time_changed": "L'heure de livraison prévue d'un colis a changé",
+      "letter_announced": "Un courrier a été annoncé"
     }
   },
   "entity": {
@@ -128,6 +129,11 @@
     "calendar": {
       "deliveries": {
         "name": "Livraisons"
+      }
+    },
+    "image": {
+      "letter_image": {
+        "name": "Courrier {title}"
       }
     },
     "sensor": {
@@ -153,6 +159,10 @@
       "outgoing_delivered_parcels": {
         "name": "Colis sortants livrés",
         "unit_of_measurement": "colis"
+      },
+      "letters": {
+        "name": "Courriers",
+        "unit_of_measurement": "courriers"
       },
       "last_update": {
         "name": "Dernière mise à jour réussie"

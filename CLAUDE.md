@@ -146,6 +146,25 @@ is the recipient's business. Account polling never suspends: the inbox is one
 batched call, so there is no per-parcel fetch to skip and `delivered_codes`
 stays empty by design.
 
+**Account entries also carry Mail Ahead letters (2026-10-03, issue #7)** —
+PostNL's letters model: a `letters` sensor, one `image` entity per letter,
+and a `bpost_letter_announced` event (also a device trigger) suppressed on
+the first refresh. Letters are not parcels: no canonical shape, no
+aggregator onboarding. Load-bearing choices:
+- **A letter's image link opens the scan without credentials**, so it is a
+  secret. It lives only under the private keys `account/letters.py` strips
+  (`public_letter`); the sensor, the image entity's attributes, the event
+  and diagnostics all see the public dict. `image.py` fetches the bytes
+  server-side and never sets `image_url`. Keep it that way.
+- **A new scan is detected on the image reference, not the URL** — a signed
+  link may change every poll without the scan changing.
+- **A failed letters fetch keeps the previous list and the parcel update**;
+  only a rejected token escalates, as on the parcel call.
+- **The letter payload is reconstructed, not captured** — the test account
+  cannot subscribe to Mail Ahead. `_warn_first_sighting` logs the first
+  letter's keys and dates (never sender or link) so a user can confirm it.
+- `{entry_id}_letters` is in the sensor sweep's `non_parcel_unique_ids`.
+
 **Two account status-mapping decisions (2026-09-19).** The vocabulary itself
 lives in the research doc — what matters here is how it lands on canonical
 statuses:

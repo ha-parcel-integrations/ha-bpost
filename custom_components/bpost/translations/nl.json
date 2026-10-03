@@ -116,7 +116,8 @@
       "parcel_registered": "Een pakket is geregistreerd",
       "parcel_status_changed": "De status van een pakket is gewijzigd",
       "parcel_delivered": "Een pakket is bezorgd",
-      "parcel_delivery_time_changed": "De verwachte bezorgtijd van een pakket is gewijzigd"
+      "parcel_delivery_time_changed": "De verwachte bezorgtijd van een pakket is gewijzigd",
+      "letter_announced": "Een brief is aangekondigd"
     }
   },
   "entity": {
@@ -128,6 +129,11 @@
     "calendar": {
       "deliveries": {
         "name": "Bezorgingen"
+      }
+    },
+    "image": {
+      "letter_image": {
+        "name": "Brief {title}"
       }
     },
     "sensor": {
@@ -153,6 +159,10 @@
       "outgoing_delivered_parcels": {
         "name": "Uitgaande bezorgde pakketten",
         "unit_of_measurement": "pakketten"
+      },
+      "letters": {
+        "name": "Brieven",
+        "unit_of_measurement": "brieven"
       },
       "last_update": {
         "name": "Laatste succesvolle update"

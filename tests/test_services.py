@@ -206,6 +206,9 @@ async def _setup_account(hass, email: str = "me@example.test") -> MockConfigEntr
     with patch(
         "custom_components.bpost.account.client.BpostAccountClient.async_get_parcel_summaries",
         new=AsyncMock(return_value=[]),
+    ), patch(
+        "custom_components.bpost.account.client.BpostAccountClient.async_get_letters",
+        new=AsyncMock(return_value={}),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()

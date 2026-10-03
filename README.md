@@ -38,6 +38,8 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 - Per-parcel sensor with the canonical status (`out_for_delivery` / `delivered` / `unknown` / …), the carrier's own status text, the expected delivery window (when bpost reports one) and a tracking deep-link
 - Summary sensors: incoming parcels, next delivery, recently delivered parcels,
   plus outgoing and delivered-outgoing parcels for account entries
+- Mail Ahead letters for account entries: a letters sensor plus an image entity
+  with the scan of each envelope bpost announces
 - Read-only **Deliveries** calendar with the expected delivery windows
 - `bpost.track_parcel` / `bpost.untrack_parcel` services, so a dashboard button can add a parcel
 - Events + device triggers for no-code automations, including outgoing status
@@ -55,6 +57,8 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 - For the account route: the e-mail address and password of your My bpost
   account. Home Assistant asks you to sign in again if bpost stops accepting
   the stored tokens.
+- For letters: Mail Ahead switched on for your address in the My bpost app.
+  Without it the letters sensor simply stays at 0.
 
 ## Installation
 
@@ -130,6 +134,8 @@ Standard HA removal applies: **Settings → Devices & Services → bpost → ⋮
 | `sensor.bpost_delivered_parcels` | Recently delivered parcels (see the retention option) |
 | `sensor.bpost_outgoing_parcels` | Active sender parcels; account entries only |
 | `sensor.bpost_outgoing_delivered_parcels` | Recently delivered sender parcels; account entries only |
+| `sensor.bpost_letters` | Mail Ahead letters from the last 30 days, listed under the `letters` attribute (`id`, `date`, `planned_delivery`, `sender`); account entries only |
+| `image.bpost_letter_<sender or date>` | One per letter: the scan of the envelope, fetched by Home Assistant and served through its own image proxy; account entries only |
 | `sensor.bpost_last_successful_update` | Diagnostic: when bpost was last polled successfully |
 
 A delivered parcel moves from its per-parcel sensor to the delivered sensor automatically.
@@ -159,8 +165,9 @@ The integration fires these on the event bus (also available as device triggers 
 | `bpost_parcel_delivery_time_changed` | The expected delivery window changes |
 | `bpost_outgoing_parcel_status_changed` | An account sender parcel's canonical status changes (`old_status` / `new_status`) |
 | `bpost_outgoing_parcel_delivered` | An account sender parcel is delivered or returned to its sender |
+| `bpost_letter_announced` | A new Mail Ahead letter appears on an account entry |
 
-Every payload is the full normalised parcel plus the hub's `device_id`. Events are suppressed on the first refresh after start-up.
+Every parcel payload is the full normalised parcel plus the hub's `device_id`; a letter payload is the letter as the letters sensor lists it, plus `carrier` and `device_id`. Events are suppressed on the first refresh after start-up.
 
 ## Services
 

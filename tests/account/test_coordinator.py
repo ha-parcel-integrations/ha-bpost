@@ -4,10 +4,15 @@ from unittest.mock import AsyncMock
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.bpost.account.client import BpostAccountApiError
+from custom_components.bpost.account.client import (
+    BpostAccountApiError,
+    BpostAccountReauthRequired,
+)
 from custom_components.bpost.account.coordinator import BpostAccountCoordinator
 from custom_components.bpost.account.parcels import is_outgoing
 from custom_components.bpost.const import DOMAIN, ParcelStatus
+
+from .letters_payload import LETTERS_IMAGES
 
 # Relative so the delivered-retention filter never ages the fixture out.
 RECENT_DAY = (date.today() - timedelta(days=1)).isoformat()
@@ -240,3 +245,67 @@ async def test_account_incoming_eta_dropping_to_null_stays_silent(hass):
     await hass.async_block_till_done()
 
     assert events == []
+
+
+def _letters_client(*letter_maps):
+    client = AsyncMock()
+    client.async_get_parcel_summaries.return_value = []
+    client.async_get_letters.side_effect = list(letter_maps)
+    return client
+
+
+async def test_letters_are_public_and_the_image_link_stays_internal(hass):
+    coordinator = BpostAccountCoordinator(hass, _letters_client(LETTERS_IMAGES), MockConfigEntry(domain=DOMAIN))
+    await coordinator._async_update_data()
+    assert [letter["id"] for letter in coordinator.letters] == ["ITEM-NEW", "ITEM-OLD"]
+    assert all("image_url" not in letter for letter in coordinator.letters)
+    assert coordinator.letter_image("ITEM-OLD") == ("REF-OLD", "https://images.example.test/old.jpg?sig=abc")
+    assert coordinator.letter_image("GONE") is None
+    window = coordinator._client.async_get_letters.await_args.args
+    assert (date.fromisoformat(window[1]) - date.fromisoformat(window[0])).days == 29
+
+
+async def test_letter_announced_fires_only_for_letters_new_since_last_poll(hass):
+    first = {"2026-10-02": LETTERS_IMAGES["2026-10-02"]}
+    coordinator = BpostAccountCoordinator(
+        hass, _letters_client(first, LETTERS_IMAGES), MockConfigEntry(domain=DOMAIN)
+    )
+    events = []
+    hass.bus.async_listen(f"{DOMAIN}_letter_announced", events.append)
+    await coordinator._async_update_data()
+    await hass.async_block_till_done()
+    assert events == []
+    await coordinator._async_update_data()
+    await hass.async_block_till_done()
+    assert [event.data["id"] for event in events] == ["ITEM-NEW"]
+    assert events[0].data["carrier"] == "bpost"
+    assert "image_url" not in events[0].data
+
+
+async def test_letters_failure_keeps_parcels_and_the_previous_letters(hass, caplog):
+    coordinator = BpostAccountCoordinator(
+        hass,
+        _letters_client(LETTERS_IMAGES, BpostAccountApiError("down")),
+        MockConfigEntry(domain=DOMAIN),
+    )
+    await coordinator._async_update_data()
+    assert await coordinator._async_update_data() is not None
+    assert len(coordinator.letters) == 2
+    assert "Mail Ahead" in caplog.text
+
+
+async def test_letters_reauth_is_not_swallowed(hass):
+    import pytest
+
+    coordinator = BpostAccountCoordinator(
+        hass, _letters_client(BpostAccountReauthRequired("expired")), MockConfigEntry(domain=DOMAIN)
+    )
+    with pytest.raises(BpostAccountReauthRequired):
+        await coordinator._async_update_data()
+
+
+async def test_letter_image_fetch_goes_through_the_client(hass):
+    client = _letters_client()
+    client.async_get_letter_image.return_value = (b"img", "image/jpeg")
+    coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
+    assert await coordinator.async_fetch_letter_image("https://x.test/a") == (b"img", "image/jpeg")

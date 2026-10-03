@@ -127,3 +127,66 @@ async def test_summary_rejects_unknown_envelopes():
     client._post = AsyncMock(return_value={"response": "wrong"})
     with pytest.raises(BpostAccountApiError):
         await client.async_get_parcel_summaries()
+
+
+async def test_letters_return_the_date_keyed_map_for_the_requested_window():
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(return_value={"status": "success", "response": {"images": {"2026-10-03": []}}})
+    assert await client.async_get_letters("2026-09-04", "2026-10-03") == {"2026-10-03": []}
+    client._post.assert_awaited_once_with(
+        "mmt/retrieveImages", {"appLang": "en", "fromDate": "2026-09-04", "toDate": "2026-10-03"}
+    )
+
+
+async def test_letters_without_images_are_empty():
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(return_value={"response": {}})
+    assert await client.async_get_letters("a", "b") == {}
+
+
+@pytest.mark.parametrize("payload", [{"response": None}, {"response": {"images": []}}, []])
+async def test_letters_reject_unexpected_shapes(payload):
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(return_value=payload)
+    with pytest.raises(BpostAccountApiError):
+        await client.async_get_letters("a", "b")
+
+
+async def test_letters_retry_once_after_refresh():
+    client = BpostAccountClient(AsyncMock())
+    client.async_refresh = AsyncMock()
+    client._post = AsyncMock(side_effect=[BpostAccountReauthRequired("expired"), {"response": {"images": {}}}])
+    assert await client.async_get_letters("a", "b") == {}
+    client.async_refresh.assert_awaited_once()
+
+
+class _ImageResponse:
+    def __init__(self, status, body=b"jpeg", content_type="image/jpeg"):
+        self.status = status
+        self._body = body
+        self.content_type = content_type
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return None
+
+    async def read(self):
+        return self._body
+
+
+async def test_letter_image_is_fetched_without_any_header():
+    session = MagicMock()
+    session.get.return_value = _ImageResponse(200)
+    client = BpostAccountClient(session, access_token="secret")
+    assert await client.async_get_letter_image("https://images.example.test/a.jpg") == (b"jpeg", "image/jpeg")
+    session.get.assert_called_once_with("https://images.example.test/a.jpg")
+
+
+async def test_letter_image_failure_raises():
+    session = MagicMock()
+    session.get.return_value = _ImageResponse(403)
+    with pytest.raises(BpostAccountApiError):
+        await BpostAccountClient(session).async_get_letter_image("https://images.example.test/a.jpg")
+
