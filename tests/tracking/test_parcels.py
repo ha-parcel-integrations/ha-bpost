@@ -383,14 +383,28 @@ def test_normalize_eta_first_sighting_warns_only_once(caplog):
 
 
 def test_normalize_delivery_point_first_sighting_warns_once(caplog):
-    raw = item(delivery_point={"name": "Some Point", "address": "Somewhere 1"})
+    raw = item(delivery_point={"type": "PARCEL_LOCKER", "name": "Some Point"})
     _normalize(raw)
     _normalize(raw)
     assert caplog.text.count("deliveryPoint") == 1
-    # never populate pickup_point from it — its contents are unconfirmed
-    parcel = _normalize(raw)
-    assert parcel["pickup_point"] is None
+
+
+def test_normalize_delivery_point_marks_a_pickup_before_arrival():
+    parcel = _normalize(
+        item(
+            active_step_name="processing",
+            delivery_point={"type": "PARCEL_LOCKER", "name": "Some Point"},
+        )
+    )
+    assert parcel["status"] is ParcelStatus.IN_TRANSIT
+    assert parcel["pickup"] is True
+    assert parcel["pickup_point"] == "Some Point"
+
+
+def test_normalize_home_delivery_is_not_a_pickup():
+    parcel = _normalize(item(delivery_point=None))
     assert parcel["pickup"] is False
+    assert parcel["pickup_point"] is None
 
 
 def test_normalize_delivery_point_absent_never_warns(caplog):

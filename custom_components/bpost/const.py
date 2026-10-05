@@ -37,23 +37,25 @@ KNOWN_CAPABILITIES = frozenset(
 
 # bpost's public tracker: weight and dimensions do come back (confirmed on two
 # real parcels, 2026-09-19 — an earlier revision wrongly declared this route
-# incapable of both); pickup_point is deliberately never populated
-# (deliveryPoint's contents are unconfirmed — see parcels.py); the ETA window
-# and event history are implemented, and the deep link is always built (it
-# needs no carrier data beyond the barcode/postcode the user supplied).
-# Keep in sync with parcels.normalize_parcel().
+# incapable of both); the ETA window and event history are implemented, and the
+# deep link is always built (it needs no carrier data beyond the barcode/postal
+# code the user supplied). pickup_point is read from deliveryPoint on both
+# routes, but only the account route has shown it populated.
+# Keep in sync with both normalisers.
 CAPABILITIES_BY_VARIANT = {
     "Tracking": frozenset({"weight", "dimensions", "delivery_window", "url", "history"}),
-    # Confirmed My bpost v3 captures provide grams, centimetres, an ETA window
-    # and a newest-first event timeline. History remains opt-in as usual.
-    "Account": frozenset({"weight", "dimensions", "delivery_window", "url", "history"}),
+    # Confirmed My bpost v3 captures provide grams, centimetres, an ETA window,
+    # a newest-first event timeline and, for a parcel locker, deliveryPoint.
+    # History remains opt-in as usual.
+    "Account": frozenset(
+        {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
+    ),
 }
 
 # Fields not confirmed yet — the docs site shows them as "awaiting data".
 # Move a field into the declaration above once a real parcel shows it.
 PENDING_CAPABILITIES_BY_VARIANT = {
     "Tracking": frozenset({"pickup_point"}),
-    "Account": frozenset({"pickup_point"}),
 }
 CAPABILITIES = CAPABILITIES_BY_VARIANT["Tracking"]
 

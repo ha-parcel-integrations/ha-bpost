@@ -60,8 +60,10 @@ confirmed, which assumptions were corrected and what is still open is the
 research doc's job — the **gate** is what belongs here: `payload` moves to
 `confirmed` and `1.0.0` becomes possible once the `expectedDeliveryTimeRange`
 shape or `deliveryPoint`'s non-`null` contents is settled by a real parcel.
-`_warn_eta_first_sighting` and `_warn_delivery_point_first_sighting` fire the
-moment one of them is, and help-wanted issues
+`deliveryPoint` was settled on the account route by a real parcel-locker
+parcel (2026-10-05, #3); the public tracker reads it the same way but has not
+shown it yet. `_warn_eta_first_sighting` and `_warn_delivery_point_first_sighting`
+still fire on the tracker, and help-wanted issues
 [#2](https://github.com/ha-parcel-integrations/ha-bpost/issues/2) and
 [#3](https://github.com/ha-parcel-integrations/ha-bpost/issues/3) hold the
 question open publicly rather than blocking the release.
@@ -100,7 +102,8 @@ at the top level.
   gram/centimetre conversions, since bpost names its units in the field names
   and both routes return them; `tracking/parcels.py`'s `apply_delivered_filter`
   / `resolve_lang` / `sort_parcels_by_ts` are generic list helpers both sources
-  call. Nothing else crosses the boundary.
+  call, and `resolve_pickup_point` reads `deliveryPoint` for both. Nothing else
+  crosses the boundary.
 - **`CAPABILITIES_BY_VARIANT`, not `CAPABILITIES`** — both routes report weight
   and dimensions, so the two variants are identical today; keep the dict, it
   makes a future divergence a one-line change. `CAPABILITIES` stays aliased to
@@ -176,8 +179,8 @@ lives in the research doc — what matters here is how it lands on canonical
 statuses:
 - **`AVAILABLE_*` is the `AT_PICKUP_POINT` set**, which makes that status
   reachable for the first time in this repo, so the `awaiting_pickup` sensor
-  now has a real trigger. `pickup_point` still stays `None` — the status proves
-  a parcel is waiting somewhere, not where.
+  now has a real trigger. Where it waits comes from `deliveryPoint`, not from
+  the status.
 - **A return leg in flight is `RETURNING`; a return leg that arrived is
   `DELIVERED`.** The `BTS_*`/`RETOUR_*` families report direction rather than
   their own phase while the parcel is moving — for a household dashboard the
@@ -245,13 +248,18 @@ not a reliable delivered signal. This must survive any refactor;
 guards it with both a known pickup-point code and a wholly unseen delivered
 method.
 
-**`pickup` is a state, never a delivery *method*** —
-`pickup: status is ParcelStatus.AT_PICKUP_POINT`, as everywhere in the suite.
-`delivered_kariboo_point` is a method of an *already-delivered* parcel, so it
-maps to `DELIVERED` and must not flip `pickup`. `pickup_point` stays `None`
-unconditionally on both routes: `deliveryPoint` has never been seen populated,
-and an unconfirmed field is not populated from a guess (BoxNow Greece set this
-precedent). `_warn_delivery_point_first_sighting` logs its first sighting.
+**`pickup` means "bound for a pickup point", read from `deliveryPoint`.**
+bpost fills `deliveryPoint` as soon as a parcel is routed to a pickup point
+(a bbox locker showed it while still `PROCESSING`) and leaves it `null` for a
+home delivery, so `pickup` is known well before arrival — that is what makes
+the `en_route_to_pickup_point` sensor worth having. `pickup_point` is
+`deliveryPoint.name`. `pickup` is also true whenever the status is
+`AT_PICKUP_POINT`, so a parcel rerouted after a missed home delivery still
+counts. `awaiting_pickup` gates on the status alone, as the contract asks.
+Only `PARCEL_LOCKER` has been seen; any other `deliveryPoint.type` still
+populates both fields but logs a one-shot WARNING. Its address and coordinates
+locate the recipient, so diagnostics redact `deliveryPoint` wholesale and the
+canonical `pickup_point` too.
 
 **`raw` is the untouched payload — corrected 2026-09-06.** Through 0.10.0 it
 was an allowlist of five curated keys, so a user's diagnostics export could

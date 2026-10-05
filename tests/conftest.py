@@ -30,6 +30,7 @@ def reset_one_shot_warnings():
     parcels._echoed_barcode_mismatches_logged.clear()
     parcels._eta_first_sighting_warned = False
     parcels._delivery_point_first_sighting_warned = False
+    parcels._unconfirmed_delivery_point_types_logged.clear()
     yield
 
 

@@ -7,7 +7,8 @@ established one-shot-warning pattern used throughout the suite).
 Every field lookup below is reconstructed rather than read off this repo's
 own wire. The one-shot WARNINGs in this module are the safety net a pre-1.0
 release ships with: an unrecognised status, a first-seen ETA window or ``deliveryPoint``
-object all log once instead of silently mis-mapping.
+object, or a pickup-point type not seen before all log once instead of silently
+mis-mapping.
 """
 from __future__ import annotations
 
@@ -217,10 +218,45 @@ def _warn_delivery_point_first_sighting(delivery_point: Any) -> None:
     _LOGGER.warning(
         "bpost's deliveryPoint was populated for the first time (keys=%r) — "
         "please open an issue (%s) and paste this line so its contents can "
-        "be mapped.",
+        "be confirmed on the public tracker.",
         keys,
         NEW_ISSUE_URL,
     )
+
+
+# Only the types a real parcel has shown. Another type still populates the
+# pickup point, but logs once so it can be confirmed.
+CONFIRMED_DELIVERY_POINT_TYPES = frozenset({"PARCEL_LOCKER"})
+_unconfirmed_delivery_point_types_logged: set[str] = set()
+
+
+def _warn_unconfirmed_delivery_point_type(point_type: Any) -> None:
+    """Log a ``deliveryPoint.type`` no real parcel has shown yet, once per type."""
+    key = repr(point_type)
+    if key in _unconfirmed_delivery_point_types_logged:
+        return
+    _unconfirmed_delivery_point_types_logged.add(key)
+    _LOGGER.warning(
+        "bpost reported a pickup point of a type not seen before (type=%s) — "
+        "please open an issue (%s) and paste this line so it can be confirmed.",
+        key,
+        NEW_ISSUE_URL,
+    )
+
+
+def resolve_pickup_point(delivery_point: Any) -> tuple[bool, str | None]:
+    """Return ``(pickup, pickup_point)`` from bpost's ``deliveryPoint``.
+
+    bpost fills ``deliveryPoint`` as soon as a parcel is routed to a pickup
+    point and leaves it ``null`` for a home delivery, so its presence is
+    what tells the two apart — well before the parcel arrives.
+    """
+    if not isinstance(delivery_point, dict):
+        return False, None
+    if delivery_point.get("type") not in CONFIRMED_DELIVERY_POINT_TYPES:
+        _warn_unconfirmed_delivery_point_type(delivery_point.get("type"))
+    name = delivery_point.get("name")
+    return True, name if isinstance(name, str) and name else None
 
 
 def resolve_lang(language: str | None) -> str:
@@ -428,6 +464,7 @@ def normalize_parcel(
     delivery_point = raw.get("deliveryPoint")
     if delivery_point:
         _warn_delivery_point_first_sighting(delivery_point)
+    pickup, pickup_point = resolve_pickup_point(delivery_point)
 
     planned_from, planned_to = (None, None) if delivered else _planned_window(raw)
 
@@ -449,8 +486,8 @@ def normalize_parcel(
         "delivered_at": delivered_at,
         "planned_from": planned_from,
         "planned_to": planned_to,
-        "pickup": status is ParcelStatus.AT_PICKUP_POINT,
-        "pickup_point": None,
+        "pickup": pickup or status is ParcelStatus.AT_PICKUP_POINT,
+        "pickup_point": pickup_point,
         "url": tracking_url(barcode, postal_code, lang),
         "weight": weight_kg(raw.get("weightInGrams")),
         "dimensions": dimensions_cm(raw.get("dimensionsInCm")),

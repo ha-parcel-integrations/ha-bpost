@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from ..const import ACCOUNT_TRACKING_URL, HISTORY_MAX_EVENTS, ParcelStatus
 from ..measurements import dimensions_cm, weight_kg
 from ..status import KNOWN_PROCESS_STEP_MAP, NEW_ISSUE_URL
+from ..tracking.parcels import resolve_pickup_point
 
 _LOGGER = logging.getLogger(__name__)
 _warned_statuses: set[str] = set()
@@ -108,6 +109,7 @@ def normalize_account_parcel(raw: dict[str, Any], *, include_history: bool = Fal
     raw_status = _current_status(raw)
     status = STATUS_MAP.get(str(raw_status), ParcelStatus.UNKNOWN)
     planned_from, planned_to = _planned_window(raw)
+    pickup, pickup_point = resolve_pickup_point(raw.get("deliveryPoint"))
     if status is ParcelStatus.UNKNOWN and raw_status is not None and str(raw_status) not in _warned_statuses:
         _warned_statuses.add(str(raw_status))
         _LOGGER.warning(
@@ -128,10 +130,8 @@ def normalize_account_parcel(raw: dict[str, Any], *, include_history: bool = Fal
         "delivered_at": _timestamp(raw.get("actualDeliveryTime")),
         "planned_from": planned_from,
         "planned_to": planned_to,
-        # The canonical status itself proves that this parcel is waiting at a
-        # collection point. A future fixture may add its human-readable name.
-        "pickup": status is ParcelStatus.AT_PICKUP_POINT,
-        "pickup_point": None,
+        "pickup": pickup or status is ParcelStatus.AT_PICKUP_POINT,
+        "pickup_point": pickup_point,
         "weight": _weight_kg(raw),
         "dimensions": _dimensions_cm(raw),
         "url": (

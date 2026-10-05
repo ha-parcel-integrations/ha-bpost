@@ -71,11 +71,64 @@ def test_known_account_pickup_and_problem_codes_are_normalized():
     assert normalize_account_parcel({"currentStatus": "REDELIVERY_NO_PICKUP"})["status"] is ParcelStatus.PROBLEM
 
 
+# Shape of a real My bpost parcel headed for a bbox locker; values invented.
+PARCEL_LOCKER_EN_ROUTE = {
+    "itemCode": "LOCKER",
+    "userType": "RECEIVER",
+    "serviceProvider": "bpost",
+    "currentStatus": "PROCESSING",
+    "eta": {"day": "2026-10-06", "time1": "", "time2": ""},
+    "deliverySteps": [
+        {"name": "prepare", "status": "completed", "knownProcessStep": "IN_PREPARATION"},
+        {"name": "processing", "status": "active", "knownProcessStep": "PROCESSING"},
+        {"name": "out_for_delivery_onFoot", "status": "upcoming", "knownProcessStep": "ON_THE_WAY_TO_PARCEL_LOCKER"},
+        {"name": "parcel_locker", "status": "upcoming", "knownProcessStep": "AVAILABLE_IN_PARCEL_LOCKER"},
+        {"name": "delivered_parcel_locker", "status": "upcoming", "knownProcessStep": "PICKED_UP_IN_PARCEL_LOCKER"},
+    ],
+    "deliveryPoint": {
+        "id": "1",
+        "type": "PARCEL_LOCKER",
+        "name": "Example bbox",
+        "street": "Examplestraat",
+        "streetNumber": "1",
+        "postcode": "1000",
+        "municipality": "Brussel",
+        "description": "Outside, right on the parking lot.",
+        "openingSchedules": [{"dayOfTheWeek": "MONDAY", "openingHours": [{"open": "08:00", "close": "20:00"}]}],
+        "lockerDetails": {"lockerType": "Cubee Locker", "lockerProvider": "Cubee"},
+    },
+    "viewParcelDetails": [
+        {"key": "productName", "title": "Mode of Shipping", "desc": "Cubee parcel locker"},
+    ],
+}
+
+
+def test_parcel_locker_is_a_pickup_with_its_name_before_arrival(caplog):
+    with caplog.at_level(logging.WARNING):
+        parcel = normalize_account_parcel(PARCEL_LOCKER_EN_ROUTE)
+    assert parcel["status"] is ParcelStatus.IN_TRANSIT
+    assert parcel["pickup"] is True
+    assert parcel["pickup_point"] == "Example bbox"
+    assert caplog.text == ""
+
+
+def test_unseen_delivery_point_type_still_populates_and_warns_once(caplog):
+    raw = {**PARCEL_LOCKER_EN_ROUTE, "deliveryPoint": {"type": "POST_POINT", "name": "Shop"}}
+    with caplog.at_level(logging.WARNING):
+        parcel = normalize_account_parcel(raw)
+        normalize_account_parcel(raw)
+    assert parcel["pickup_point"] == "Shop"
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "POST_POINT" in warnings[0].getMessage()
+
+
 def test_account_capabilities_match_the_confirmed_account_payload_fields():
     assert CAPABILITIES_BY_VARIANT["Account"] == {
         "weight",
         "dimensions",
         "delivery_window",
+        "pickup_point",
         "url",
         "history",
     }

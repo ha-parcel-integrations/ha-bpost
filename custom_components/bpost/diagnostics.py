@@ -48,8 +48,9 @@ TO_REDACT = {
     # the delivery photo is a fetch token for the user's own doorstep
     "safeplacePicture",
     "refId",
-    # deliveryPoint's contents are unconfirmed (§3/§4) — redact wholesale
+    # the pickup point's address and coordinates locate the recipient
     "deliveryPoint",
+    "pickup_point",
     # driver position near the delivery address
     "lastKnownLocation",
     "targetLocation",
