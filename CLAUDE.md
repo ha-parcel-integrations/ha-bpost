@@ -261,6 +261,11 @@ populates both fields but logs a one-shot WARNING. Its address and coordinates
 locate the recipient, so diagnostics redact `deliveryPoint` wholesale and the
 canonical `pickup_point` too.
 
+**A date-only account ETA spans the whole local day.** `eta.day` arrives
+with `time1`/`time2` empty until the round is planned; each empty bound falls
+back to 00:00 / 23:59:59 Brussels time, the suite's Aramex/Canpar precedent,
+rather than a zero-length window at midnight.
+
 **`raw` is the untouched payload — corrected 2026-09-06.** Through 0.10.0 it
 was an allowlist of five curated keys, so a user's diagnostics export could
 never carry the very ETA/`deliveryPoint` shape the pre-1.0 gate asks them for.

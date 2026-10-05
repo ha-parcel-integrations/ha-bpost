@@ -123,6 +123,12 @@ def test_unseen_delivery_point_type_still_populates_and_warns_once(caplog):
     assert "POST_POINT" in warnings[0].getMessage()
 
 
+def test_date_only_eta_spans_the_whole_local_day():
+    parcel = normalize_account_parcel(PARCEL_LOCKER_EN_ROUTE)
+    assert parcel["planned_from"] == "2026-10-06T00:00:00+02:00"
+    assert parcel["planned_to"] == "2026-10-06T23:59:59+02:00"
+
+
 def test_account_capabilities_match_the_confirmed_account_payload_fields():
     assert CAPABILITIES_BY_VARIANT["Account"] == {
         "weight",

@@ -58,13 +58,17 @@ def _history(raw: dict[str, Any]) -> list[dict]:
 
 
 def _planned_window(raw: dict[str, Any]) -> tuple[str | None, str | None]:
-    """Build the confirmed v3 ETA window from ``eta.day/time1/time2``."""
+    """Build the confirmed v3 ETA window from ``eta.day/time1/time2``.
+
+    bpost sends the day alone, with both times empty, until the round is
+    planned; that spans the whole local day.
+    """
     eta = raw.get("eta")
     if not isinstance(eta, dict) or not eta.get("day"):
         return None, None
     return (
-        _timestamp({"day": eta["day"], "time": eta.get("time1")}),
-        _timestamp({"day": eta["day"], "time": eta.get("time2")}),
+        _timestamp({"day": eta["day"], "time": eta.get("time1") or "00:00"}),
+        _timestamp({"day": eta["day"], "time": eta.get("time2") or "23:59:59"}),
     )
 
 
