@@ -6,6 +6,7 @@ from custom_components.bpost.const import ParcelStatus
 from custom_components.bpost.sensor import (
     BpostAwaitingPickupSensor,
     BpostDeliveredParcelsSensor,
+    BpostEnRouteToPickupPointSensor,
     BpostIncomingParcelsSensor,
     BpostLastUpdateSensor,
     BpostNextDeliverySensor,
@@ -100,13 +101,27 @@ def test_delivered_sensor():
 def test_awaiting_pickup_counts_only_parcels_ready_for_collection():
     ready = _parcel("READY", status=ParcelStatus.AT_PICKUP_POINT, pickup=True)
     en_route = _parcel("ROUTE", status=ParcelStatus.IN_TRANSIT, pickup=True)
-    home_delivery = _parcel("HOME", status=ParcelStatus.AT_PICKUP_POINT)
+    rerouted = _parcel("REROUTED", status=ParcelStatus.AT_PICKUP_POINT)
     sensor = BpostAwaitingPickupSensor(
-        _coordinator([ready, en_route, home_delivery]), _entry()
+        _coordinator([ready, en_route, rerouted]), _entry()
     )
 
+    assert sensor.unique_id == "e1_awaiting_pickup"
+    assert sensor.native_value == 2
+    assert sensor.extra_state_attributes["parcels"] == [ready, rerouted]
+
+
+def test_en_route_to_pickup_point_never_overlaps_awaiting_pickup():
+    ready = _parcel("READY", status=ParcelStatus.AT_PICKUP_POINT, pickup=True)
+    en_route = _parcel("ROUTE", status=ParcelStatus.IN_TRANSIT, pickup=True)
+    home = _parcel("HOME", status=ParcelStatus.OUT_FOR_DELIVERY)
+    sensor = BpostEnRouteToPickupPointSensor(
+        _coordinator([ready, en_route, home]), _entry()
+    )
+
+    assert sensor.unique_id == "e1_en_route_to_pickup_point"
     assert sensor.native_value == 1
-    assert sensor.extra_state_attributes["parcels"] == [ready]
+    assert sensor.extra_state_attributes["parcels"] == [en_route]
 
 
 def test_account_bucket_sensors_use_the_standard_coordinator_data():

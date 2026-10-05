@@ -66,6 +66,7 @@ async def async_setup_entry(
     non_parcel_unique_ids = {
         f"{entry_id}_incoming_parcels",
         f"{entry_id}_next_delivery",
+        f"{entry_id}_en_route_to_pickup_point",
         f"{entry_id}_awaiting_pickup",
         f"{entry_id}_delivered_parcels",
         f"{entry_id}_last_update",
@@ -93,6 +94,7 @@ async def async_setup_entry(
             BpostParcelSensor(coordinator, entry, parcel.get("barcode", ""))
         )
     entities.append(BpostNextDeliverySensor(coordinator, entry))
+    entities.append(BpostEnRouteToPickupPointSensor(coordinator, entry))
     entities.append(BpostAwaitingPickupSensor(coordinator, entry))
     entities.append(BpostDeliveredParcelsSensor(coordinator, entry))
     if entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT:
@@ -291,43 +293,59 @@ class BpostDeliveredParcelsSensor(
         return {"parcels": _bucket(self.coordinator, "incoming_delivered")}
 
 
-class BpostAwaitingPickupSensor(CoordinatorEntity, SensorEntity):
-    """Incoming parcels that have arrived at a pickup point.
-
-    The count is deliberately zero until a parcel's canonical status is
-    ``at_pickup_point``. It is not a count of parcels merely destined for a
-    pickup point, so it tells the user when collection is actually possible.
-    """
+class _BpostPickupListSensor(CoordinatorEntity, SensorEntity):
+    """Shared shape for the two pickup-point phases of incoming parcels."""
 
     _attr_has_entity_name = True
-    _attr_translation_key = "awaiting_pickup"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_attribution = ATTRIBUTION
     _unrecorded_attributes = frozenset({"parcels"})
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        """Initialise the awaiting-pickup summary sensor."""
+        """Initialise a pickup-point summary sensor."""
         super().__init__(coordinator)
-        self._attr_unique_id = f"{entry.entry_id}_awaiting_pickup"
+        self._attr_unique_id = f"{entry.entry_id}_{self._attr_translation_key}"
         self._attr_device_info = build_device_info(entry)
+
+    def _parcels(self) -> list[dict]:
+        raise NotImplementedError
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of parcels in this phase."""
+        return len(self._parcels())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the parcels in this phase."""
+        return {"parcels": self._parcels()}
+
+
+class BpostEnRouteToPickupPointSensor(_BpostPickupListSensor):
+    """Incoming parcels headed for, but not yet at, a pickup point."""
+
+    _attr_translation_key = "en_route_to_pickup_point"
 
     def _parcels(self) -> list[dict]:
         return [
             parcel
             for parcel in _bucket(self.coordinator, "incoming_active")
             if parcel.get("pickup")
-            and parcel.get("status") is ParcelStatus.AT_PICKUP_POINT
+            and parcel.get("status") is not ParcelStatus.AT_PICKUP_POINT
         ]
 
-    @property
-    def native_value(self) -> int:
-        """Return the number of parcels ready for collection."""
-        return len(self._parcels())
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return the ready-to-collect parcels."""
-        return {"parcels": self._parcels()}
+class BpostAwaitingPickupSensor(_BpostPickupListSensor):
+    """Incoming parcels that have arrived at a pickup point."""
+
+    _attr_translation_key = "awaiting_pickup"
+
+    def _parcels(self) -> list[dict]:
+        return [
+            parcel
+            for parcel in _bucket(self.coordinator, "incoming_active")
+            if parcel.get("status") is ParcelStatus.AT_PICKUP_POINT
+        ]
 
 
 class BpostOutgoingParcelsSensor(CoordinatorEntity, SensorEntity):
