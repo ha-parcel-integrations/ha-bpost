@@ -1,0 +1,58 @@
+# Notify when bpost's Mail Ahead service announces a new letter, with
+# the scanned envelope attached when there is one. Account entries only.
+#
+# Triggers on the bpost_letter_announced event, then waits for the
+# per-letter image entity whose `id` attribute matches the letter. The
+# event fires just before that entity is added, and the scan is served
+# through Home Assistant's image proxy (/api/image_proxy/<entity_id>),
+# which the companion app authenticates against natively.
+#
+# Matching on the `id` attribute rather than the entity_id keeps this
+# working in every language: the entity_id follows the translated name
+# (`..._letter_...` in English, `..._brief_...` in Dutch,
+# `..._courrier_...` in French). Letters without a scan never get an
+# image entity; after the timeout the notification goes out without an
+# image.
+
+alias: "bpost: new letter announced"
+description: Notify when Mail Ahead announces a new letter, with the scan attached.
+mode: queued
+max: 5
+
+triggers:
+  - trigger: event
+    event_type: bpost_letter_announced
+
+variables:
+  letter_id: "{{ trigger.event.data.id }}"
+
+actions:
+  - wait_template: >-
+      {{ states.image
+         | selectattr('attributes.id', 'defined')
+         | selectattr('attributes.id', 'eq', letter_id)
+         | list | count > 0 }}
+    timeout: "00:00:30"
+    continue_on_timeout: true
+
+  - variables:
+      image_entity: >-
+        {{ states.image
+           | selectattr('attributes.id', 'defined')
+           | selectattr('attributes.id', 'eq', letter_id)
+           | map(attribute='entity_id') | first | default('') }}
+
+  - action: notify.mobile_app
+    data:
+      title: "Letter announced"
+      message: >-
+        {{ trigger.event.data.sender or 'A new letter' }}
+        ({{ trigger.event.data.planned_delivery or trigger.event.data.date }})
+      data: >-
+        {% if image_entity %}
+        {{ {'attachment': {'url': '/api/image_proxy/' ~ image_entity,
+                           'content-type': 'jpeg'},
+            'image': '/api/image_proxy/' ~ image_entity} }}
+        {% else %}
+        {{ {} }}
+        {% endif %}
