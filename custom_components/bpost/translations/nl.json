@@ -56,7 +56,7 @@
         }
       },
       "parcels": {
-        "title": "Pakketten",
+        "title": "Pakketten beheren",
         "data": {
           "tracking_codes": "Trackingcodes"
         },
