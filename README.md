@@ -49,7 +49,7 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 
 ## Requirements
 
-- Home Assistant 2024.12 or newer
+- Home Assistant 2025.12 or newer
 - For tracking codes: the delivery postal code (asked once, at setup) and a
   parcel's tracking code (from the shipping confirmation e-mail or the
   missed-delivery card) — bpost's public tracker requires both to look up a
