@@ -37,12 +37,16 @@ def is_outgoing(raw: dict[str, Any]) -> bool:
     return str(raw.get("userType", "")).upper() in {"SENDER", "SHIPPER", "OUTGOING"}
 
 
+# Built once at import: constructing a ZoneInfo reads the tz file from disk.
+_BRUSSELS = ZoneInfo("Europe/Brussels")
+
+
 def _timestamp(value: Any) -> str | None:
     """Convert My bpost's local ``{day, time}`` object to an ISO timestamp."""
     if not isinstance(value, dict) or not (value.get("day") or value.get("date")):
         return None
     try:
-        return datetime.fromisoformat(f"{value.get('day') or value.get('date')}T{value.get('time') or '00:00'}").replace(tzinfo=ZoneInfo("Europe/Brussels")).isoformat()
+        return datetime.fromisoformat(f"{value.get('day') or value.get('date')}T{value.get('time') or '00:00'}").replace(tzinfo=_BRUSSELS).isoformat()
     except ValueError:
         return None
 
