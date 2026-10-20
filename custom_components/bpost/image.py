@@ -45,9 +45,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Add one image entity per letter and keep the set in sync."""
-    if entry.data.get(CONF_SOURCE) != SOURCE_ACCOUNT:
+    coordinator = entry.runtime_data.coordinator
+    if entry.data.get(CONF_SOURCE) != SOURCE_ACCOUNT or not isinstance(
+        coordinator, BpostAccountCoordinator
+    ):
         return
-    coordinator: BpostAccountCoordinator = entry.runtime_data.coordinator
     unique_prefix = f"{entry.entry_id}_letter_image_"
     known_ids: set[str] = set()
 

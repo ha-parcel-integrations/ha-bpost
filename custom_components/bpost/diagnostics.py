@@ -91,7 +91,7 @@ async def async_get_config_entry_diagnostics(
         outgoing_active = []
         outgoing_delivered = []
 
-    diagnostics = {
+    diagnostics: dict[str, Any] = {
         "entry_data": async_redact_data(dict(entry.data), TO_REDACT),
         "entry_options": async_redact_data(dict(entry.options), TO_REDACT),
         "counts": {

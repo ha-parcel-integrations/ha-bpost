@@ -40,6 +40,8 @@ LETTER_WINDOW_DAYS = 29
 class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
     """Refresh the full account inbox; accounts never suspend polling."""
 
+    config_entry: ConfigEntry
+
     def __init__(
         self, hass: HomeAssistant, client: BpostAccountClient, entry: ConfigEntry
     ) -> None:

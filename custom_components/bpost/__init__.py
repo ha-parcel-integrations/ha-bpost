@@ -41,6 +41,8 @@ type BpostConfigEntry = ConfigEntry[BpostData]
 async def async_setup_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> bool:
     """Set up bpost from a config entry."""
     is_account = entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT
+    client: BpostApiClient | BpostAccountClient
+    coordinator: BpostCoordinator | BpostAccountCoordinator
     if is_account:
 
         async def async_store_tokens(tokens: dict[str, str]) -> None:

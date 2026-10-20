@@ -19,6 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import BpostConfigEntry
+from .account.coordinator import BpostAccountCoordinator
 from .const import CONF_SOURCE, DOMAIN, SOURCE_ACCOUNT, ParcelStatus
 from .device import ATTRIBUTION, build_device_info
 from .tracking.coordinator import BpostCoordinator
@@ -98,7 +99,9 @@ async def async_setup_entry(
     entities.append(BpostEnRouteToPickupPointSensor(coordinator, entry))
     entities.append(BpostAwaitingPickupSensor(coordinator, entry))
     entities.append(BpostDeliveredParcelsSensor(coordinator, entry))
-    if entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT:
+    if entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT and isinstance(
+        coordinator, BpostAccountCoordinator
+    ):
         entities.append(BpostOutgoingParcelsSensor(coordinator, entry))
         entities.append(BpostOutgoingDeliveredParcelsSensor(coordinator, entry))
         entities.append(BpostLettersSensor(coordinator, entry))
@@ -107,7 +110,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BpostIncomingParcelsSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
+class BpostIncomingParcelsSensor(
+    CoordinatorEntity[BpostCoordinator | BpostAccountCoordinator], SensorEntity
+):
     """Summary sensor: count of active (not-yet-delivered) tracked parcels.
 
     Spawns a per-parcel sensor for each new barcode and removes stale ones
@@ -123,7 +128,7 @@ class BpostIncomingParcelsSensor(CoordinatorEntity[BpostCoordinator], SensorEnti
 
     def __init__(
         self,
-        coordinator: BpostCoordinator,
+        coordinator: BpostCoordinator | BpostAccountCoordinator,
         entry: ConfigEntry,
         async_add_entities: AddEntitiesCallback,
         known_barcodes: set[str] | None = None,
@@ -172,7 +177,9 @@ class BpostIncomingParcelsSensor(CoordinatorEntity[BpostCoordinator], SensorEnti
         super()._handle_coordinator_update()
 
 
-class BpostParcelSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
+class BpostParcelSensor(
+    CoordinatorEntity[BpostCoordinator | BpostAccountCoordinator], SensorEntity
+):
     """Per-parcel sensor reporting the status of one tracked bpost parcel."""
 
     _attr_has_entity_name = True
@@ -181,7 +188,10 @@ class BpostParcelSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
     _unrecorded_attributes = frozenset({"raw", "history"})
 
     def __init__(
-        self, coordinator: BpostCoordinator, entry: ConfigEntry, barcode: str
+        self,
+        coordinator: BpostCoordinator | BpostAccountCoordinator,
+        entry: ConfigEntry,
+        barcode: str,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -210,7 +220,9 @@ class BpostParcelSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
         return dict(parcel) if parcel else {}
 
 
-class BpostNextDeliverySensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
+class BpostNextDeliverySensor(
+    CoordinatorEntity[BpostCoordinator | BpostAccountCoordinator], SensorEntity
+):
     """Earliest expected delivery datetime across all active parcels."""
 
     _attr_has_entity_name = True
@@ -218,7 +230,11 @@ class BpostNextDeliverySensor(CoordinatorEntity[BpostCoordinator], SensorEntity)
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_attribution = ATTRIBUTION
 
-    def __init__(self, coordinator: BpostCoordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self,
+        coordinator: BpostCoordinator | BpostAccountCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_next_delivery"
@@ -257,7 +273,9 @@ class BpostNextDeliverySensor(CoordinatorEntity[BpostCoordinator], SensorEntity)
         }
 
 
-class BpostDeliveredParcelsSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
+class BpostDeliveredParcelsSensor(
+    CoordinatorEntity[BpostCoordinator | BpostAccountCoordinator], SensorEntity
+):
     """Recently delivered tracked bpost parcels."""
 
     _attr_has_entity_name = True
@@ -266,7 +284,11 @@ class BpostDeliveredParcelsSensor(CoordinatorEntity[BpostCoordinator], SensorEnt
     _attr_attribution = ATTRIBUTION
     _unrecorded_attributes = frozenset({"parcels"})
 
-    def __init__(self, coordinator: BpostCoordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self,
+        coordinator: BpostCoordinator | BpostAccountCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_delivered_parcels"
@@ -390,7 +412,7 @@ class BpostOutgoingDeliveredParcelsSensor(CoordinatorEntity, SensorEntity):
         return {"parcels": _bucket(self.coordinator, "outgoing_delivered")}
 
 
-class BpostLettersSensor(CoordinatorEntity, SensorEntity):
+class BpostLettersSensor(CoordinatorEntity[BpostAccountCoordinator], SensorEntity):
     """Account-only summary of Mail Ahead letters."""
 
     _attr_has_entity_name = True
@@ -399,7 +421,9 @@ class BpostLettersSensor(CoordinatorEntity, SensorEntity):
     _attr_attribution = ATTRIBUTION
     _unrecorded_attributes = frozenset({"letters"})
 
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self, coordinator: BpostAccountCoordinator, entry: ConfigEntry
+    ) -> None:
         """Initialise the letters summary."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_letters"
@@ -416,7 +440,9 @@ class BpostLettersSensor(CoordinatorEntity, SensorEntity):
         return {"letters": self.coordinator.letters}
 
 
-class BpostLastUpdateSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
+class BpostLastUpdateSensor(
+    CoordinatorEntity[BpostCoordinator | BpostAccountCoordinator], SensorEntity
+):
     """Diagnostic sensor reporting when bpost was last polled successfully."""
 
     _attr_has_entity_name = True
@@ -425,7 +451,11 @@ class BpostLastUpdateSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_attribution = ATTRIBUTION
 
-    def __init__(self, coordinator: BpostCoordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self,
+        coordinator: BpostCoordinator | BpostAccountCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_last_update"
