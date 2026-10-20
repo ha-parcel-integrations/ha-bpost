@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import voluptuous as vol
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -15,6 +14,7 @@ from homeassistant.config_entries import (
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import voluptuous as vol
 
 from .account.client import (
     BpostAccountApiError,
@@ -113,7 +113,9 @@ class BpostConfigFlow(ConfigFlow, domain=DOMAIN):
         GLS's account-less, postcode-keyed model exactly. Setup does not hit
         the API — the endpoint needs a barcode too.
         """
-        return self.async_show_menu(step_id="user", menu_options=[SOURCE_ACCOUNT, SOURCE_TRACKING])
+        return self.async_show_menu(
+            step_id="user", menu_options=[SOURCE_ACCOUNT, SOURCE_TRACKING]
+        )
 
     async def async_step_tracking(
         self, user_input: dict[str, Any] | None = None
@@ -178,13 +180,13 @@ class BpostConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
         return self.async_show_form(
             step_id=SOURCE_ACCOUNT,
-            data_schema=vol.Schema({vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str}),
+            data_schema=vol.Schema(
+                {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str}
+            ),
             errors=errors,
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Reauthenticate the fixed account; never silently change accounts."""
         self._reauth_entry = self._get_reauth_entry()
         return await self.async_step_reauth_confirm()
@@ -198,7 +200,9 @@ class BpostConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             client = BpostAccountClient(async_get_clientsession(self.hass))
             try:
-                tokens = await client.async_login(entry.data[CONF_EMAIL], user_input[CONF_PASSWORD])
+                tokens = await client.async_login(
+                    entry.data[CONF_EMAIL], user_input[CONF_PASSWORD]
+                )
             except BpostAccountInvalidCredentials:
                 errors["base"] = "invalid_auth"
             except BpostAccountApiError:

@@ -1,4 +1,5 @@
 """Constants for the bpost parcel tracker integration."""
+
 from enum import StrEnum
 
 from homeassistant.const import Platform
@@ -16,14 +17,14 @@ class ParcelStatus(StrEnum):
     roughly the order a parcel moves through.
     """
 
-    REGISTERED = "registered"               # Sender announced the parcel; not handed over yet
-    IN_TRANSIT = "in_transit"               # In the carrier's network
-    OUT_FOR_DELIVERY = "out_for_delivery"   # On a delivery vehicle today
-    AT_PICKUP_POINT = "at_pickup_point"     # Ready to collect at a pickup location
-    DELIVERED = "delivered"                 # Handed over
-    RETURNING = "returning"                 # Failed delivery, going back to sender
-    PROBLEM = "problem"                     # Carrier reports an exception/issue
-    UNKNOWN = "unknown"                     # Raw status we have not mapped yet
+    REGISTERED = "registered"  # Sender announced the parcel; not handed over yet
+    IN_TRANSIT = "in_transit"  # In the carrier's network
+    OUT_FOR_DELIVERY = "out_for_delivery"  # On a delivery vehicle today
+    AT_PICKUP_POINT = "at_pickup_point"  # Ready to collect at a pickup location
+    DELIVERED = "delivered"  # Handed over
+    RETURNING = "returning"  # Failed delivery, going back to sender
+    PROBLEM = "problem"  # Carrier reports an exception/issue
+    UNKNOWN = "unknown"  # Raw status we have not mapped yet
 
 
 PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.IMAGE, Platform.SENSOR]
@@ -43,7 +44,9 @@ KNOWN_CAPABILITIES = frozenset(
 # routes, but only the account route has shown it populated.
 # Keep in sync with both normalisers.
 CAPABILITIES_BY_VARIANT = {
-    "Tracking": frozenset({"weight", "dimensions", "delivery_window", "url", "history"}),
+    "Tracking": frozenset(
+        {"weight", "dimensions", "delivery_window", "url", "history"}
+    ),
     # Confirmed My bpost v3 captures provide grams, centimetres, an ETA window,
     # a newest-first event timeline and, for a parcel locker, deliveryPoint.
     # History remains opt-in as usual.

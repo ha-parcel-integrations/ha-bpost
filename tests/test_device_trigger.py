@@ -1,9 +1,7 @@
 """Tests for bpost device triggers."""
+
 from custom_components.bpost.const import DOMAIN
-from custom_components.bpost.device_trigger import (
-    TRIGGER_EVENTS,
-    async_get_triggers,
-)
+from custom_components.bpost.device_trigger import TRIGGER_EVENTS, async_get_triggers
 
 
 async def test_get_triggers_returns_all_seven(hass):

@@ -1,8 +1,9 @@
 """Tests for the bpost services (track_parcel / untrack_parcel)."""
+
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from homeassistant.exceptions import ServiceValidationError
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.bpost.const import (
@@ -15,6 +16,7 @@ from custom_components.bpost.const import (
     DOMAIN,
     SOURCE_ACCOUNT,
 )
+from custom_components.bpost.services import _resolve_entry
 
 from .payloads import BARCODE, POSTAL_CODE, active_item
 
@@ -123,8 +125,6 @@ async def test_untrack_unknown_barcode_is_noop(hass):
 
 async def test_track_parcel_not_set_up_raises(hass):
     with pytest.raises(ServiceValidationError):
-        from custom_components.bpost.services import _resolve_entry
-
         _resolve_entry(hass, None)
 
 
@@ -203,12 +203,15 @@ async def _setup_account(hass, email: str = "me@example.test") -> MockConfigEntr
         },
     )
     entry.add_to_hass(hass)
-    with patch(
-        "custom_components.bpost.account.client.BpostAccountClient.async_get_parcel_summaries",
-        new=AsyncMock(return_value=[]),
-    ), patch(
-        "custom_components.bpost.account.client.BpostAccountClient.async_get_letters",
-        new=AsyncMock(return_value={}),
+    with (
+        patch(
+            "custom_components.bpost.account.client.BpostAccountClient.async_get_parcel_summaries",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "custom_components.bpost.account.client.BpostAccountClient.async_get_letters",
+            new=AsyncMock(return_value={}),
+        ),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -241,7 +244,9 @@ async def test_track_parcel_never_writes_into_an_account_entry(hass):
     assert CONF_PARCELS not in account.options
 
 
-async def test_unloading_the_last_tracking_hub_removes_services_despite_an_account(hass):
+async def test_unloading_the_last_tracking_hub_removes_services_despite_an_account(
+    hass,
+):
     await _setup_account(hass)
     hub = await _setup(hass)
     assert hass.services.has_service(DOMAIN, "track_parcel")

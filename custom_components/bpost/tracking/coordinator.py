@@ -2,12 +2,13 @@
 
 Fetching and event firing only — the parcel mapping lives in :mod:`.parcels`.
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -73,10 +74,9 @@ def _next_anchor(now: datetime) -> datetime:
     )
     if now < six_today:
         return six_today
-    midnight_tomorrow = (now + timedelta(days=1)).replace(
+    return (now + timedelta(days=1)).replace(
         hour=QUIET_WINDOW_START_HOUR, minute=0, second=0, microsecond=0
     )
-    return midnight_tomorrow
 
 
 def _hottest_tier_minutes(active_parcels: list[dict], now: datetime) -> int | None:
@@ -184,9 +184,9 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
         # that already existed when the integration started — otherwise every
         # restart would flood users with "registered" notifications.
         self._known_state: dict[str, ParcelStatus] | None = None
-        self._known_delivery_times: (
-            dict[str, tuple[str | None, str | None]] | None
-        ) = None
+        self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
+            None
+        )
         # Cached device id, attached to every fired event so device-trigger
         # automations can filter to this device.
         self._cached_device_id: str | None = None
@@ -237,9 +237,7 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
     def _include_history(self) -> bool:
         """Whether the opt-in per-parcel history option is enabled."""
         return bool(
-            self.config_entry.options.get(
-                CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY
-            )
+            self.config_entry.options.get(CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY)
         )
 
     async def _async_update_data(self) -> list[dict]:
@@ -275,7 +273,9 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
         errors = 0
         retry_afters: list[float] = []
         saw_429 = False
-        for (barcode, postal_code), result in zip(tracked_to_fetch, results):
+        for (barcode, postal_code), result in zip(
+            tracked_to_fetch, results, strict=True
+        ):
             key = parcel_key(barcode)
             if isinstance(result, BaseException):
                 if not isinstance(result, (BpostApiError, aiohttp.ClientError)):
@@ -296,7 +296,11 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
                 # have it, otherwise show a pending placeholder so the user
                 # still sees the parcel they asked us to track.
                 cached = self._raw_cache.get(key)
-                raws_by_key[key] = (barcode, postal_code, cached if cached is not None else {})
+                raws_by_key[key] = (
+                    barcode,
+                    postal_code,
+                    cached if cached is not None else {},
+                )
                 continue
 
             self._raw_cache[key] = result
@@ -371,7 +375,7 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
         # succeeded (or nothing needed fetching) — a poll served entirely from
         # cache must not present itself as a successful update.
         if not tracked_to_fetch or errors < len(tracked_to_fetch):
-            self.last_success_time = datetime.now(timezone.utc)
+            self.last_success_time = datetime.now(UTC)
 
         now = dt_util.now()
         self._current_tier_minutes = _hottest_tier_minutes(normalized_active, now)

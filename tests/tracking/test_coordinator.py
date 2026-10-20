@@ -2,8 +2,12 @@
 
 The parcel mapping itself is covered by ``test_parcels.py``.
 """
+
+import asyncio
 from unittest.mock import AsyncMock
 
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -16,6 +20,7 @@ from custom_components.bpost.const import (
     DOMAIN,
     ParcelStatus,
 )
+from custom_components.bpost.parcels import parcel_key
 from custom_components.bpost.tracking.api import BpostApiError
 from custom_components.bpost.tracking.coordinator import BpostCoordinator
 
@@ -106,8 +111,6 @@ async def test_update_keeps_cached_payload_on_error(hass):
 
 
 async def test_update_raises_when_every_parcel_fails(hass):
-    from homeassistant.helpers.update_coordinator import UpdateFailed
-
     entry = _entry_with(_parcels(BARCODE))
     entry.add_to_hass(hass)
     client = AsyncMock()
@@ -174,8 +177,6 @@ async def test_update_prunes_cache_for_untracked_parcels(hass):
 
 
 async def test_update_fetches_parcels_concurrently(hass):
-    import asyncio
-
     entry = _entry_with(_parcels(BARCODE, OTHER_BARCODE))
     entry.add_to_hass(hass)
     in_flight = 0
@@ -227,7 +228,6 @@ async def test_delivered_code_skipped_from_fetch(hass):
 
     await coordinator._async_update_data()
     assert client.async_get_parcel.call_count == 2
-    from custom_components.bpost.parcels import parcel_key
 
     assert coordinator.delivered_codes == {parcel_key(OTHER_BARCODE)}
 
@@ -242,7 +242,6 @@ async def test_delivered_code_skipped_from_fetch(hass):
 
 async def test_delivered_code_forgotten_when_untracked(hass):
     """Untracking a delivered barcode drops it from the skip set too."""
-    from custom_components.bpost.parcels import parcel_key
 
     entry = _entry_with(_parcels(BARCODE))
     entry.add_to_hass(hass)
@@ -288,8 +287,6 @@ async def test_first_refresh_fires_nothing(hass):
 
 
 async def test_event_carries_device_id(hass):
-    from homeassistant.helpers import device_registry as dr
-
     entry = _entry_with(_parcels(BARCODE))
     entry.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -300,9 +297,7 @@ async def test_event_carries_device_id(hass):
     coordinator = BpostCoordinator(hass, client, entry)
 
     events = []
-    hass.bus.async_listen(
-        f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e)
-    )
+    hass.bus.async_listen(f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e))
 
     client.async_get_parcel.return_value = in_transit_item()
     await coordinator._async_update_data()
@@ -320,9 +315,7 @@ async def test_fires_status_changed_event(hass):
     coordinator = BpostCoordinator(hass, client, entry)
 
     events = []
-    hass.bus.async_listen(
-        f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e)
-    )
+    hass.bus.async_listen(f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e))
 
     client.async_get_parcel.return_value = in_transit_item()
     await coordinator._async_update_data()  # first refresh: baseline only
@@ -408,7 +401,9 @@ async def test_fires_registered_event_for_new_parcel(hass):
             CONF_PARCELS: _parcels(BARCODE, OTHER_BARCODE),
         },
     )
-    client.async_get_parcel.side_effect = lambda barcode, postal_code: active_item(barcode)
+    client.async_get_parcel.side_effect = lambda barcode, postal_code: active_item(
+        barcode
+    )
     await coordinator._async_update_data()
     await hass.async_block_till_done()
 

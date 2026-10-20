@@ -4,6 +4,7 @@ The account API is deliberately isolated from the public tracking client: it
 uses a user-owned token pair and a revocable app compatibility key.  Responses
 are returned as raw dictionaries; normalisation belongs in ``parcels.py``.
 """
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -111,21 +112,22 @@ class BpostAccountClient:
                 except ValueError:
                     error = None
                 error_code = error.get("code") if isinstance(error, dict) else None
-                if (
-                    error_code == "APPVERSION_NOT_SUPPORTED"
-                    and not include_auth
-                ):
+                if error_code == "APPVERSION_NOT_SUPPORTED" and not include_auth:
                     raise BpostAccountCompatibilityError(
                         "account API rejected app compatibility",
                         status_code=response.status,
                     )
                 if path == "users/login":
-                    raise BpostAccountInvalidCredentials("login rejected", status_code=response.status)
+                    raise BpostAccountInvalidCredentials(
+                        "login rejected", status_code=response.status
+                    )
                 raise BpostAccountReauthRequired(
                     "account token rejected", status_code=response.status
                 )
             if response.status != 200:
-                raise BpostAccountApiError("account API request failed", status_code=response.status)
+                raise BpostAccountApiError(
+                    "account API request failed", status_code=response.status
+                )
             try:
                 return await response.json(content_type=None)
             except ValueError as err:
@@ -136,7 +138,13 @@ class BpostAccountClient:
         tokens = _tokens(
             await self._post(
                 "users/login",
-                {"userName": email, "password": password, "appLang": "en", "mandatoryConsent": True, "optionalConsent": False},
+                {
+                    "userName": email,
+                    "password": password,
+                    "appLang": "en",
+                    "mandatoryConsent": True,
+                    "optionalConsent": False,
+                },
                 include_auth=False,
             )
         )
@@ -179,16 +187,40 @@ class BpostAccountClient:
         items = response.get("items", [])
         if not isinstance(items, list):
             raise BpostAccountApiError("unexpected parcel-list items")
-        summaries = [item for item in items if isinstance(item, dict) and item.get("itemCode")]
+        summaries = [
+            item for item in items if isinstance(item, dict) and item.get("itemCode")
+        ]
         if not summaries:
             return []
-        detail_payload = await self._post("parcel/getparcelsv3", {"appLang": "en", "isFirstPageCall": True, "items": [{"itemCode": item["itemCode"], "Status": item.get("Status"), "LatestEventTimestamp": item.get("LatestEventTimestamp")} for item in summaries]})
-        detail_response = detail_payload.get("response") if isinstance(detail_payload, dict) else None
+        detail_payload = await self._post(
+            "parcel/getparcelsv3",
+            {
+                "appLang": "en",
+                "isFirstPageCall": True,
+                "items": [
+                    {
+                        "itemCode": item["itemCode"],
+                        "Status": item.get("Status"),
+                        "LatestEventTimestamp": item.get("LatestEventTimestamp"),
+                    }
+                    for item in summaries
+                ],
+            },
+        )
+        detail_response = (
+            detail_payload.get("response") if isinstance(detail_payload, dict) else None
+        )
         if not isinstance(detail_response, dict):
             raise BpostAccountApiError("unexpected parcel-detail response")
         active = detail_response.get("active", {})
         active_lists = active.values() if isinstance(active, dict) else ()
-        entries = [item for group in active_lists if isinstance(group, list) for item in group if isinstance(item, dict)]
+        entries = [
+            item
+            for group in active_lists
+            if isinstance(group, list)
+            for item in group
+            if isinstance(item, dict)
+        ]
         history = detail_response.get("history", [])
         if isinstance(history, list):
             entries.extend(item for item in history if isinstance(item, dict))
@@ -216,5 +248,7 @@ class BpostAccountClient:
         """Fetch a letter scan; the link is self-contained and takes no headers."""
         async with self._session.get(url) as response:
             if response.status != 200:
-                raise BpostAccountApiError("letter image request failed", status_code=response.status)
+                raise BpostAccountApiError(
+                    "letter image request failed", status_code=response.status
+                )
             return await response.read(), response.content_type

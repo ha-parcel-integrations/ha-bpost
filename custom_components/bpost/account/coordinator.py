@@ -1,8 +1,9 @@
 """Coordinator for the account inbox source."""
+
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import logging
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -39,7 +40,9 @@ LETTER_WINDOW_DAYS = 29
 class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
     """Refresh the full account inbox; accounts never suspend polling."""
 
-    def __init__(self, hass: HomeAssistant, client: BpostAccountClient, entry: ConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, client: BpostAccountClient, entry: ConfigEntry
+    ) -> None:
         """Initialise a continuously-polled account inbox coordinator."""
         super().__init__(
             hass,
@@ -51,7 +54,9 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
         self._client = client
         # None on the first update deliberately suppresses historical events.
         self._known_state: dict[str, ParcelStatus] | None = None
-        self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = None
+        self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
+            None
+        )
         self._known_outgoing_state: dict[str, ParcelStatus] | None = None
         self._cached_device_id: str | None = None
         self._delivered_codes: set[str] = set()
@@ -73,7 +78,9 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
             return self._cached_device_id
         registry = dr.async_get(self.hass)
         device = next(
-            iter(dr.async_entries_for_config_entry(registry, self.config_entry.entry_id)),
+            iter(
+                dr.async_entries_for_config_entry(registry, self.config_entry.entry_id)
+            ),
             None,
         )
         if device is not None:
@@ -144,14 +151,24 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
         except BpostAccountApiError as err:
             raise UpdateFailed("Unable to update bpost account inbox") from err
 
-        include_history = bool(self.config_entry.options.get(CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY))
+        include_history = bool(
+            self.config_entry.options.get(CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY)
+        )
         lang = resolve_lang(self.hass.config.language)
         parcels = [
             normalize_account_parcel(raw, include_history=include_history, lang=lang)
             for raw in summaries
         ]
-        incoming = [parcel for raw, parcel in zip(summaries, parcels) if not is_outgoing(raw)]
-        outgoing = [parcel for raw, parcel in zip(summaries, parcels) if is_outgoing(raw)]
+        incoming = [
+            parcel
+            for raw, parcel in zip(summaries, parcels, strict=True)
+            if not is_outgoing(raw)
+        ]
+        outgoing = [
+            parcel
+            for raw, parcel in zip(summaries, parcels, strict=True)
+            if is_outgoing(raw)
+        ]
         self._fire_outgoing_change_events(outgoing)
         self._known_outgoing_state = snapshot_states(outgoing)
         active = [parcel for parcel in incoming if not parcel["delivered"]]
@@ -160,10 +177,16 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
             [parcel for parcel in outgoing if not parcel["delivered"]], "planned_from"
         )
         outgoing_delivered = apply_delivered_filter(
-            sort_parcels_by_ts([parcel for parcel in outgoing if parcel["delivered"]], "delivered_at", descending=True), self.config_entry
+            sort_parcels_by_ts(
+                [parcel for parcel in outgoing if parcel["delivered"]],
+                "delivered_at",
+                descending=True,
+            ),
+            self.config_entry,
         )
         incoming_delivered = apply_delivered_filter(
-            sort_parcels_by_ts(delivered, "delivered_at", descending=True), self.config_entry
+            sort_parcels_by_ts(delivered, "delivered_at", descending=True),
+            self.config_entry,
         )
         incoming_active = sort_parcels_by_ts(active, "planned_from")
 
@@ -177,7 +200,7 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
         await self._async_update_letters()
 
         self._delivered_codes = set()
-        self.last_success_time = datetime.now(timezone.utc)
+        self.last_success_time = datetime.now(UTC)
         return {
             "incoming_active": incoming_active,
             "incoming_delivered": incoming_delivered,

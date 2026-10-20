@@ -1,9 +1,11 @@
 """Tests for the bpost config and options flow."""
+
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.bpost.account.client import BpostAccountInvalidCredentials
 from custom_components.bpost.config_flow import (
     normalize_barcode,
     normalize_postal_code,
@@ -114,7 +116,8 @@ async def test_account_flow_stores_tokens_but_never_the_password(hass):
             result["flow_id"], {"next_step_id": SOURCE_ACCOUNT}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {CONF_EMAIL: " Me@Example.test ", CONF_PASSWORD: "secret"}
+            result["flow_id"],
+            {CONF_EMAIL: " Me@Example.test ", CONF_PASSWORD: "secret"},
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -126,8 +129,6 @@ async def test_account_flow_stores_tokens_but_never_the_password(hass):
 
 
 async def test_account_flow_surfaces_invalid_credentials(hass):
-    from custom_components.bpost.account.client import BpostAccountInvalidCredentials
-
     with patch(
         "custom_components.bpost.config_flow.BpostAccountClient.async_login",
         new=AsyncMock(side_effect=BpostAccountInvalidCredentials("rejected")),
@@ -291,7 +292,8 @@ async def test_account_flow_rejects_a_second_entry_for_the_same_email(hass):
             result["flow_id"], {"next_step_id": SOURCE_ACCOUNT}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {CONF_EMAIL: " ME@Example.TEST ", CONF_PASSWORD: "secret"}
+            result["flow_id"],
+            {CONF_EMAIL: " ME@Example.TEST ", CONF_PASSWORD: "secret"},
         )
 
     assert result["type"] is FlowResultType.ABORT

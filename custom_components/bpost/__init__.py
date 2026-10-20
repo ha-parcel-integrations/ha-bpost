@@ -1,8 +1,9 @@
 """bpost parcel tracker custom component for Home Assistant."""
+
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
+import logging
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -41,6 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> boo
     """Set up bpost from a config entry."""
     is_account = entry.data.get(CONF_SOURCE) == SOURCE_ACCOUNT
     if is_account:
+
         async def async_store_tokens(tokens: dict[str, str]) -> None:
             hass.config_entries.async_update_entry(
                 entry,
@@ -88,9 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> boo
     return True
 
 
-async def _async_options_updated(
-    hass: HomeAssistant, entry: BpostConfigEntry
-) -> None:
+async def _async_options_updated(hass: HomeAssistant, entry: BpostConfigEntry) -> None:
     """Apply changed options by refreshing the coordinator."""
     await entry.runtime_data.coordinator.async_request_refresh()
 
@@ -103,10 +103,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> bo
     # config_flow.py), so only remove them once the last hub is gone —
     # otherwise unloading one hub would break the others.
     others_loaded = any(
-        other.entry_id != entry.entry_id and other.state is ConfigEntryState.LOADED
+        other.entry_id != entry.entry_id
+        and other.state is ConfigEntryState.LOADED
         and other.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
         for other in hass.config_entries.async_entries(DOMAIN)
     )
-    if entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING and not others_loaded:
+    if (
+        entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
+        and not others_loaded
+    ):
         async_unload_services(hass)
     return True

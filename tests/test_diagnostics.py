@@ -1,4 +1,5 @@
 """Tests for bpost diagnostics."""
+
 from datetime import timedelta
 from unittest.mock import MagicMock
 
@@ -30,7 +31,11 @@ async def test_diagnostics_redacts_and_counts(hass):
                 "deliveryPoint": {"name": "Some Point"},
             },
             "history": [
-                {"timestamp": "2026-04-29T08:00:00Z", "status": None, "raw_status": "Onderweg naar Jan Janssens"},
+                {
+                    "timestamp": "2026-04-29T08:00:00Z",
+                    "status": None,
+                    "raw_status": "Onderweg naar Jan Janssens",
+                },
             ],
         }
     ]

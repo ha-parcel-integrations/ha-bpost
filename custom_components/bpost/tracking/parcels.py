@@ -10,10 +10,11 @@ release ships with: an unrecognised status, a first-seen ETA window or ``deliver
 object, or a pickup-point type not seen before all log once instead of silently
 mis-mapping.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import logging
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -28,11 +29,7 @@ from ..const import (
     ParcelStatus,
 )
 from ..measurements import dimensions_cm, weight_kg
-from ..status import (
-    KNOWN_PROCESS_STEP_MAP,
-    NEW_ISSUE_URL,
-    map_known_process_step,
-)
+from ..status import KNOWN_PROCESS_STEP_MAP, NEW_ISSUE_URL, map_known_process_step
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -190,7 +187,7 @@ def _warn_eta_first_sighting(raw_eta: Any) -> None:
     the datum that settles which ETA shape bpost actually sends, whatever
     shape it turns out to be.
     """
-    global _eta_first_sighting_warned
+    global _eta_first_sighting_warned  # noqa: PLW0603 -- one-shot flag must outlive the call; tests reset it
     if _eta_first_sighting_warned:
         return
     _eta_first_sighting_warned = True
@@ -210,7 +207,7 @@ def _warn_delivery_point_first_sighting(delivery_point: Any) -> None:
     unknown — only the key set is
     logged, never the values, until a fixture proves what is safe to show.
     """
-    global _delivery_point_first_sighting_warned
+    global _delivery_point_first_sighting_warned  # noqa: PLW0603 -- one-shot flag must outlive the call; tests reset it
     if _delivery_point_first_sighting_warned:
         return
     _delivery_point_first_sighting_warned = True
@@ -280,11 +277,11 @@ def parse_iso(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(str(value))
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
@@ -301,7 +298,7 @@ def to_iso_timestamp(value: Any) -> str | None:
         return None
     if isinstance(value, (int, float)):
         try:
-            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(value / 1000, tz=UTC).isoformat()
         except (OverflowError, OSError, ValueError):
             return None
     return str(value)
@@ -385,14 +382,14 @@ def _delivered_at(raw: dict) -> str | None:
     if clock:
         try:
             parsed = datetime.strptime(f"{day} {clock}", "%Y-%m-%d %H:%M")
-            return parsed.replace(tzinfo=timezone.utc).isoformat()
+            return parsed.replace(tzinfo=UTC).isoformat()
         except ValueError:
             pass
     try:
         parsed = datetime.strptime(str(day), "%Y-%m-%d")
     except ValueError:
         return None
-    return parsed.replace(tzinfo=timezone.utc).isoformat()
+    return parsed.replace(tzinfo=UTC).isoformat()
 
 
 def _planned_window(raw: dict) -> tuple[str | None, str | None]:
@@ -539,14 +536,12 @@ def apply_delivered_filter(parcels: list[dict], entry: ConfigEntry) -> list[dict
     shows.
     """
     options = entry.options
-    filter_type = options.get(
-        CONF_DELIVERED_FILTER_TYPE, DEFAULT_DELIVERED_FILTER_TYPE
-    )
+    filter_type = options.get(CONF_DELIVERED_FILTER_TYPE, DEFAULT_DELIVERED_FILTER_TYPE)
     amount = int(
         options.get(CONF_DELIVERED_FILTER_AMOUNT, DEFAULT_DELIVERED_FILTER_AMOUNT)
     )
     if filter_type == "days":
-        cutoff = datetime.now(timezone.utc) - timedelta(days=amount)
+        cutoff = datetime.now(UTC) - timedelta(days=amount)
         return [
             parcel
             for parcel in parcels

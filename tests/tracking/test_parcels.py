@@ -4,11 +4,13 @@ These need no Home Assistant instance — the whole point of keeping
 ``parcels.py`` free of I/O is that the carrier-specific mapping can be tested
 as plain functions.
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.bpost.account.parcels import STATUS_MAP as account_map
 from custom_components.bpost.const import (
     CAPABILITIES,
     CONF_DELIVERED_FILTER_AMOUNT,
@@ -17,6 +19,7 @@ from custom_components.bpost.const import (
     KNOWN_CAPABILITIES,
     ParcelStatus,
 )
+from custom_components.bpost.status import KNOWN_PROCESS_STEP_MAP
 from custom_components.bpost.tracking.parcels import (
     apply_delivered_filter,
     build_history,
@@ -27,6 +30,7 @@ from custom_components.bpost.tracking.parcels import (
     resolve_lang,
     sort_parcels_by_ts,
     to_iso_timestamp,
+    tracking_url,
 )
 
 from .payloads import (
@@ -47,7 +51,7 @@ from .payloads import (
 
 
 @pytest.mark.parametrize(
-    "code,expected",
+    ("code", "expected"),
     [
         ("delivered", ParcelStatus.DELIVERED),
         ("delivered_kariboo_point", ParcelStatus.DELIVERED),
@@ -65,14 +69,19 @@ def test_map_parcel_status_missing_is_unknown():
 
 def test_map_parcel_status_prefix_matches_an_unseen_round_mode(caplog):
     """An unseen method suffix prefix-matches: out_for_delivery_* -> out_for_delivery."""
-    assert map_parcel_status("out_for_delivery_byDrone") == ParcelStatus.OUT_FOR_DELIVERY
+    assert (
+        map_parcel_status("out_for_delivery_byDrone") == ParcelStatus.OUT_FOR_DELIVERY
+    )
     assert "prefix match" in caplog.text
 
 
 def test_every_confirmed_round_mode_is_an_exact_hit(caplog):
     """The five documented round modes must not need the prefix fallback."""
     for mode in ("onFoot", "byBike", "byCar", "byEbike", "byECar"):
-        assert map_parcel_status(f"out_for_delivery_{mode}") == ParcelStatus.OUT_FOR_DELIVERY
+        assert (
+            map_parcel_status(f"out_for_delivery_{mode}")
+            == ParcelStatus.OUT_FOR_DELIVERY
+        )
     assert "prefix match" not in caplog.text
 
 
@@ -127,7 +136,10 @@ def test_unknown_known_process_step_warns_and_falls_back_to_the_name(caplog):
 
 def test_normalize_publishes_known_process_step_as_raw_status():
     parcel = _normalize(
-        item(known_process_step="OUT_FOR_DELIVERY_HOME", active_step_name="out_for_delivery_byCar")
+        item(
+            known_process_step="OUT_FOR_DELIVERY_HOME",
+            active_step_name="out_for_delivery_byCar",
+        )
     )
     assert parcel["raw_status"] == "OUT_FOR_DELIVERY_HOME"
     assert parcel["status"] == ParcelStatus.OUT_FOR_DELIVERY
@@ -136,8 +148,6 @@ def test_normalize_publishes_known_process_step_as_raw_status():
 def test_the_two_sources_share_one_status_vocabulary():
     """The account route's map *is* the tracking route's map — a regression
     here is the two sources starting to drift apart again."""
-    from custom_components.bpost.account.parcels import STATUS_MAP as account_map
-    from custom_components.bpost.status import KNOWN_PROCESS_STEP_MAP
 
     assert account_map is KNOWN_PROCESS_STEP_MAP
 
@@ -167,7 +177,7 @@ def test_resolve_lang_limits_to_nl_fr_en():
 
 def test_parse_iso_handles_z_naive_and_garbage():
     assert parse_iso("2026-04-29T13:12:42Z").tzinfo is not None
-    assert parse_iso("2026-04-29T13:12:42").tzinfo == timezone.utc
+    assert parse_iso("2026-04-29T13:12:42").tzinfo == UTC
     assert parse_iso("not-a-date") is None
     assert parse_iso(None) is None
 
@@ -209,14 +219,18 @@ def test_build_history_localises_by_language():
 
 
 def test_build_history_falls_back_to_english_for_missing_language():
-    events = [{"date": "2026-04-27", "time": None, "key": {"EN": {"description": "Registered"}}}]
+    events = [
+        {
+            "date": "2026-04-27",
+            "time": None,
+            "key": {"EN": {"description": "Registered"}},
+        }
+    ]
     assert build_history(events, lang="nl")[0]["raw_status"] == "Registered"
 
 
 def test_build_history_caps_to_max_events():
-    events = [
-        event(f"2026-04-{day:02d}", None, "x", "x", "x") for day in range(1, 26)
-    ]
+    events = [event(f"2026-04-{day:02d}", None, "x", "x", "x") for day in range(1, 26)]
     assert len(build_history(events, max_events=20)) == 20
 
 
@@ -312,7 +326,9 @@ def test_normalize_delivered_mailbox_drop():
     assert parcel["pickup_point"] is None
 
 
-@pytest.mark.parametrize("factory", [delivered_kariboo_item, delivered_unknown_method_item])
+@pytest.mark.parametrize(
+    "factory", [delivered_kariboo_item, delivered_unknown_method_item]
+)
 def test_delivered_is_never_derived_from_the_status_name(factory):
     """The core rule: actualDeliveryInformation decides, not activeStep.name.
 
@@ -479,8 +495,6 @@ def test_normalize_raw_omits_round_status_key_when_absent():
 
 
 def test_normalize_url_requires_both_barcode_and_postal_code():
-    from custom_components.bpost.tracking.parcels import tracking_url
-
     assert tracking_url(None, "1000", "en") is None
     assert tracking_url("ABC", None, "en") is None
     assert tracking_url("ABC", "1000", "nl").startswith(
@@ -543,7 +557,7 @@ def _entry(filter_type: str, amount: int) -> MockConfigEntry:
 
 
 def _delivered_pair() -> list[dict]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return [
         {"barcode": "RECENT", "delivered_at": (now - timedelta(days=1)).isoformat()},
         {"barcode": "OLD", "delivered_at": (now - timedelta(days=30)).isoformat()},

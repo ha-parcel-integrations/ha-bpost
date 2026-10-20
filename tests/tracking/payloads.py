@@ -4,6 +4,7 @@ Every shape below is reconstructed rather than read off this repo's own wire.
 Keep them in one module rather than inline in each test — when the payload shape turns out
 to be different from what was assumed, there is then exactly one place to fix.
 """
+
 from __future__ import annotations
 
 BARCODE = "323456789012"
@@ -63,7 +64,9 @@ def item(
         "productCategory": "NATIONAL",
         "deliveryPreferenceType": "STANDARD",
         "deliveryPoint": delivery_point,
-        "events": events if events is not None else [
+        "events": events
+        if events is not None
+        else [
             event(
                 "2026-04-29",
                 "08:46",

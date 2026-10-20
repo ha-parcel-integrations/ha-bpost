@@ -4,6 +4,7 @@ bpost states its units in the field names themselves (``weightInGrams``,
 ``dimensionsInCm``), so these are pure unit conversions with no carrier
 semantics — the one kind of parsing both routes can safely share.
 """
+
 from __future__ import annotations
 
 import re
@@ -41,7 +42,9 @@ def dimensions_cm(value: Any) -> dict[str, float | str] | None:
             for key in ("length", "width", "height")
         ]
     elif isinstance(value, str):
-        numbers = [to_number(number) for number in re.findall(r"\d+(?:[.,]\d+)?", value)[:3]]
+        numbers = [
+            to_number(number) for number in re.findall(r"\d+(?:[.,]\d+)?", value)[:3]
+        ]
     else:
         return None
     if len(numbers) != 3 or any(number is None or number <= 0 for number in numbers):

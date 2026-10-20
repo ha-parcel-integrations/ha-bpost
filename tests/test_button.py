@@ -1,4 +1,5 @@
 """Tests for the bpost refresh button."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.bpost.button import BpostRefreshButton

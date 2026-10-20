@@ -1,8 +1,9 @@
 """Sensor platform for the bpost parcel tracker integration."""
+
 from __future__ import annotations
 
-import logging
 from datetime import datetime
+import logging
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -80,7 +81,7 @@ async def async_setup_entry(
             and entity_entry.unique_id.startswith(f"{entry_id}_")
             and entity_entry.unique_id not in non_parcel_unique_ids
         ):
-            barcode = entity_entry.unique_id[len(f"{entry_id}_"):]
+            barcode = entity_entry.unique_id[len(f"{entry_id}_") :]
             if barcode not in current_barcodes:
                 registry.async_remove(entity_entry.entity_id)
 
@@ -89,10 +90,10 @@ async def async_setup_entry(
             coordinator, entry, async_add_entities, current_barcodes
         ),
     ]
-    for parcel in _bucket(coordinator, "incoming_active"):
-        entities.append(
-            BpostParcelSensor(coordinator, entry, parcel.get("barcode", ""))
-        )
+    entities.extend(
+        BpostParcelSensor(coordinator, entry, parcel.get("barcode", ""))
+        for parcel in _bucket(coordinator, "incoming_active")
+    )
     entities.append(BpostNextDeliverySensor(coordinator, entry))
     entities.append(BpostEnRouteToPickupPointSensor(coordinator, entry))
     entities.append(BpostAwaitingPickupSensor(coordinator, entry))
@@ -106,9 +107,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BpostIncomingParcelsSensor(
-    CoordinatorEntity[BpostCoordinator], SensorEntity
-):
+class BpostIncomingParcelsSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
     """Summary sensor: count of active (not-yet-delivered) tracked parcels.
 
     Spawns a per-parcel sensor for each new barcode and removes stale ones
@@ -149,8 +148,7 @@ class BpostIncomingParcelsSensor(
 
     def _handle_coordinator_update(self) -> None:
         current_barcodes: set[str] = {
-            p.get("barcode", "")
-            for p in _bucket(self.coordinator, "incoming_active")
+            p.get("barcode", "") for p in _bucket(self.coordinator, "incoming_active")
         }
 
         new_barcodes = current_barcodes - self._known_barcodes
@@ -212,9 +210,7 @@ class BpostParcelSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
         return dict(parcel) if parcel else {}
 
 
-class BpostNextDeliverySensor(
-    CoordinatorEntity[BpostCoordinator], SensorEntity
-):
+class BpostNextDeliverySensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
     """Earliest expected delivery datetime across all active parcels."""
 
     _attr_has_entity_name = True
@@ -222,9 +218,7 @@ class BpostNextDeliverySensor(
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_attribution = ATTRIBUTION
 
-    def __init__(
-        self, coordinator: BpostCoordinator, entry: ConfigEntry
-    ) -> None:
+    def __init__(self, coordinator: BpostCoordinator, entry: ConfigEntry) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_next_delivery"
@@ -263,9 +257,7 @@ class BpostNextDeliverySensor(
         }
 
 
-class BpostDeliveredParcelsSensor(
-    CoordinatorEntity[BpostCoordinator], SensorEntity
-):
+class BpostDeliveredParcelsSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
     """Recently delivered tracked bpost parcels."""
 
     _attr_has_entity_name = True
@@ -274,9 +266,7 @@ class BpostDeliveredParcelsSensor(
     _attr_attribution = ATTRIBUTION
     _unrecorded_attributes = frozenset({"parcels"})
 
-    def __init__(
-        self, coordinator: BpostCoordinator, entry: ConfigEntry
-    ) -> None:
+    def __init__(self, coordinator: BpostCoordinator, entry: ConfigEntry) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_delivered_parcels"
@@ -426,9 +416,7 @@ class BpostLettersSensor(CoordinatorEntity, SensorEntity):
         return {"letters": self.coordinator.letters}
 
 
-class BpostLastUpdateSensor(
-    CoordinatorEntity[BpostCoordinator], SensorEntity
-):
+class BpostLastUpdateSensor(CoordinatorEntity[BpostCoordinator], SensorEntity):
     """Diagnostic sensor reporting when bpost was last polled successfully."""
 
     _attr_has_entity_name = True
@@ -437,9 +425,7 @@ class BpostLastUpdateSensor(
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_attribution = ATTRIBUTION
 
-    def __init__(
-        self, coordinator: BpostCoordinator, entry: ConfigEntry
-    ) -> None:
+    def __init__(self, coordinator: BpostCoordinator, entry: ConfigEntry) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_last_update"

@@ -1,4 +1,5 @@
 """Tests for Mail Ahead letter parsing."""
+
 import logging
 
 from custom_components.bpost.account.letters import extract_letters
@@ -32,7 +33,10 @@ def test_unsubscribed_or_malformed_maps_are_empty():
 
 
 def test_duplicate_item_ids_collapse():
-    images = {"2026-10-02": LETTERS_IMAGES["2026-10-02"], "2026-10-03": LETTERS_IMAGES["2026-10-02"]}
+    images = {
+        "2026-10-02": LETTERS_IMAGES["2026-10-02"],
+        "2026-10-03": LETTERS_IMAGES["2026-10-02"],
+    }
     assert len(extract_letters(images)) == 1
 
 

@@ -13,13 +13,14 @@ field to pick *which* hub when more than one is configured (e.g. a household
 that also receives parcels addressed to a second postcode), the same escape
 hatch GLS keeps for its own multi-hub households.
 """
+
 from __future__ import annotations
 
-import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+import voluptuous as vol
 
 from .config_flow import normalize_barcode, normalize_postal_code, valid_barcode
 from .const import (
@@ -53,7 +54,8 @@ def _resolve_entry(hass: HomeAssistant, postal_code: str | None) -> ConfigEntry:
     specify one.
     """
     entries = [
-        entry for entry in hass.config_entries.async_entries(DOMAIN)
+        entry
+        for entry in hass.config_entries.async_entries(DOMAIN)
         if entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
     ]
     if not entries:
@@ -95,7 +97,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
         barcode = normalize_barcode(call.data[CONF_TRACKING_CODE])
         target_key = parcel_key(barcode)
         entries = [
-            entry for entry in hass.config_entries.async_entries(DOMAIN)
+            entry
+            for entry in hass.config_entries.async_entries(DOMAIN)
             if entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
         ]
         if not entries:
@@ -103,9 +106,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         # Remove the parcel from whichever hub(s) track it.
         for entry in entries:
             current = entry.options.get(CONF_PARCELS, [])
-            kept = [
-                p for p in current if parcel_key(p[CONF_BARCODE]) != target_key
-            ]
+            kept = [p for p in current if parcel_key(p[CONF_BARCODE]) != target_key]
             if len(kept) != len(current):
                 hass.config_entries.async_update_entry(
                     entry, options={**entry.options, CONF_PARCELS: kept}

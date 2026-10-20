@@ -1,8 +1,9 @@
 """Image platform for bpost: scans of Mail Ahead letters (account source only)."""
+
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, time
 import logging
-from datetime import date, datetime, time, timezone
 from typing import Any
 
 from homeassistant.components.image import ImageEntity
@@ -29,7 +30,7 @@ def _letter_day(letter: dict | None) -> datetime | None:
         day = date.fromisoformat(str((letter or {}).get("date")))
     except ValueError:
         return None
-    return datetime.combine(day, time.min, tzinfo=timezone.utc)
+    return datetime.combine(day, time.min, tzinfo=UTC)
 
 
 def _image(letter: dict | None) -> tuple[str | None, str | None]:
@@ -53,9 +54,7 @@ async def async_setup_entry(
     @callback
     def _sync_letters() -> None:
         current_ids = {
-            letter["id"]
-            for letter in coordinator.letters
-            if _image(letter)[1]
+            letter["id"] for letter in coordinator.letters if _image(letter)[1]
         }
         new_ids = current_ids - known_ids
         if new_ids:
@@ -111,7 +110,11 @@ class BpostLetterImage(CoordinatorEntity[BpostAccountCoordinator], ImageEntity):
 
     def _letter(self) -> dict | None:
         return next(
-            (letter for letter in self.coordinator.letters if letter["id"] == self._letter_id),
+            (
+                letter
+                for letter in self.coordinator.letters
+                if letter["id"] == self._letter_id
+            ),
             None,
         )
 
@@ -143,10 +146,14 @@ class BpostLetterImage(CoordinatorEntity[BpostAccountCoordinator], ImageEntity):
         if not url:
             return None
         try:
-            image_bytes, content_type = await self.coordinator.async_fetch_letter_image(url)
+            image_bytes, content_type = await self.coordinator.async_fetch_letter_image(
+                url
+            )
         except Exception as err:  # noqa: BLE001 - a failed scan must not break the entity
             # async_image may only raise cancellation/timeout/content-type errors.
-            _LOGGER.warning("Could not fetch bpost letter image: %s", type(err).__name__)
+            _LOGGER.warning(
+                "Could not fetch bpost letter image: %s", type(err).__name__
+            )
             return None
         if content_type and content_type.startswith("image/"):
             self._attr_content_type = content_type

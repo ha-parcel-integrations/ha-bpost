@@ -1,7 +1,11 @@
 """Tests for account inbox polling."""
-from datetime import date, timedelta
+
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock
 
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import UpdateFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.bpost.account.client import (
@@ -15,7 +19,7 @@ from custom_components.bpost.const import DOMAIN, ParcelStatus
 from .letters_payload import LETTERS_IMAGES
 
 # Relative so the delivered-retention filter never ages the fixture out.
-RECENT_DAY = (date.today() - timedelta(days=1)).isoformat()
+RECENT_DAY = (datetime.now(UTC).date() - timedelta(days=1)).isoformat()
 
 
 async def test_empty_account_inbox_stays_available_and_keeps_polling(hass):
@@ -36,8 +40,7 @@ async def test_account_api_error_becomes_update_failed(hass):
     client = AsyncMock()
     client.async_get_parcel_summaries.side_effect = BpostAccountApiError("nope")
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
-    import pytest
-    from homeassistant.helpers.update_coordinator import UpdateFailed
+
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
 
@@ -73,7 +76,13 @@ async def test_account_outgoing_status_change_fires_suite_event(hass):
     client = AsyncMock()
     client.async_get_parcel_summaries.side_effect = [
         [{"itemCode": "OUT", "userType": "SENDER", "currentStatus": "PROCESSING"}],
-        [{"itemCode": "OUT", "userType": "SENDER", "currentStatus": "OUT_FOR_DELIVERY_HOME"}],
+        [
+            {
+                "itemCode": "OUT",
+                "userType": "SENDER",
+                "currentStatus": "OUT_FOR_DELIVERY_HOME",
+            }
+        ],
     ]
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
     events = []
@@ -91,8 +100,20 @@ async def test_account_outgoing_status_change_fires_suite_event(hass):
 async def test_account_outgoing_delivery_fires_dedicated_event_only(hass):
     client = AsyncMock()
     client.async_get_parcel_summaries.side_effect = [
-        [{"itemCode": "OUT", "userType": "SENDER", "currentStatus": "OUT_FOR_DELIVERY_HOME"}],
-        [{"itemCode": "OUT", "userType": "SENDER", "currentStatus": "DELIVERED_TO_SENDER"}],
+        [
+            {
+                "itemCode": "OUT",
+                "userType": "SENDER",
+                "currentStatus": "OUT_FOR_DELIVERY_HOME",
+            }
+        ],
+        [
+            {
+                "itemCode": "OUT",
+                "userType": "SENDER",
+                "currentStatus": "DELIVERED_TO_SENDER",
+            }
+        ],
     ]
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
     delivered, changed = [], []
@@ -129,7 +150,11 @@ async def test_account_new_incoming_parcel_fires_registered(hass):
         [{"itemCode": "IN", "userType": "RECEIVER", "currentStatus": "PROCESSING"}],
         [
             {"itemCode": "IN", "userType": "RECEIVER", "currentStatus": "PROCESSING"},
-            {"itemCode": "NEW", "userType": "RECEIVER", "currentStatus": "PROCESSING_HOME"},
+            {
+                "itemCode": "NEW",
+                "userType": "RECEIVER",
+                "currentStatus": "PROCESSING_HOME",
+            },
         ],
     ]
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
@@ -147,7 +172,13 @@ async def test_account_incoming_status_change_fires_the_incoming_event(hass):
     client = AsyncMock()
     client.async_get_parcel_summaries.side_effect = [
         [{"itemCode": "IN", "userType": "RECEIVER", "currentStatus": "PROCESSING"}],
-        [{"itemCode": "IN", "userType": "RECEIVER", "currentStatus": "OUT_FOR_DELIVERY_HOME"}],
+        [
+            {
+                "itemCode": "IN",
+                "userType": "RECEIVER",
+                "currentStatus": "OUT_FOR_DELIVERY_HOME",
+            }
+        ],
     ]
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
     incoming, outgoing = [], []
@@ -167,7 +198,13 @@ async def test_account_incoming_status_change_fires_the_incoming_event(hass):
 async def test_account_incoming_delivery_fires_dedicated_event_only(hass):
     client = AsyncMock()
     client.async_get_parcel_summaries.side_effect = [
-        [{"itemCode": "IN", "userType": "RECEIVER", "currentStatus": "OUT_FOR_DELIVERY_HOME"}],
+        [
+            {
+                "itemCode": "IN",
+                "userType": "RECEIVER",
+                "currentStatus": "OUT_FOR_DELIVERY_HOME",
+            }
+        ],
         [
             {
                 "itemCode": "IN",
@@ -255,7 +292,9 @@ def _letters_client(*letter_maps):
 
 
 async def test_letters_keep_their_raw_record_and_ask_a_30_day_window(hass):
-    coordinator = BpostAccountCoordinator(hass, _letters_client(LETTERS_IMAGES), MockConfigEntry(domain=DOMAIN))
+    coordinator = BpostAccountCoordinator(
+        hass, _letters_client(LETTERS_IMAGES), MockConfigEntry(domain=DOMAIN)
+    )
     await coordinator._async_update_data()
     assert [letter["id"] for letter in coordinator.letters] == ["ITEM-NEW", "ITEM-OLD"]
     assert coordinator.letters[1]["raw"] is LETTERS_IMAGES["2026-10-02"][0]
@@ -293,17 +332,18 @@ async def test_letters_failure_keeps_parcels_and_the_previous_letters(hass, capl
 
 
 async def test_a_rejected_token_starts_reauth_from_either_call(hass):
-    import pytest
-    from homeassistant.exceptions import ConfigEntryAuthFailed
-
     coordinator = BpostAccountCoordinator(
-        hass, _letters_client(BpostAccountReauthRequired("expired")), MockConfigEntry(domain=DOMAIN)
+        hass,
+        _letters_client(BpostAccountReauthRequired("expired")),
+        MockConfigEntry(domain=DOMAIN),
     )
     with pytest.raises(ConfigEntryAuthFailed):
         await coordinator._async_update_data()
 
     client = AsyncMock()
-    client.async_get_parcel_summaries.side_effect = BpostAccountReauthRequired("expired")
+    client.async_get_parcel_summaries.side_effect = BpostAccountReauthRequired(
+        "expired"
+    )
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
     with pytest.raises(ConfigEntryAuthFailed):
         await coordinator._async_update_data()
@@ -313,4 +353,7 @@ async def test_letter_image_fetch_goes_through_the_client(hass):
     client = _letters_client()
     client.async_get_letter_image.return_value = (b"img", "image/jpeg")
     coordinator = BpostAccountCoordinator(hass, client, MockConfigEntry(domain=DOMAIN))
-    assert await coordinator.async_fetch_letter_image("https://x.test/a") == (b"img", "image/jpeg")
+    assert await coordinator.async_fetch_letter_image("https://x.test/a") == (
+        b"img",
+        "image/jpeg",
+    )

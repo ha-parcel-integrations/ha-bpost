@@ -4,11 +4,12 @@ Pure-function tests for the tiering/scheduling helpers, plus a few
 integration checks that ``_async_update_data`` actually wires them up (the
 full-stop condition, its resume, and the 429 backoff).
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
-import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.bpost.const import (
@@ -33,8 +34,6 @@ from custom_components.bpost.tracking.coordinator import (
 )
 
 from .payloads import BARCODE, POSTAL_CODE, active_item
-
-UTC = timezone.utc
 
 
 def _out_for_delivery(planned_from: str | None) -> dict:

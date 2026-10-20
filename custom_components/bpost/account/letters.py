@@ -3,6 +3,7 @@
 Letters have no tracking status or canonical parcel shape, so they live apart
 from ``parcels.py``. No I/O and no Home Assistant objects.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,7 @@ def _warn_first_sighting(day: str, raw: dict[str, Any]) -> None:
     field set and the date formats. Keys and dates only — the sender and the
     image link stay out of the log.
     """
-    global _first_sighting_warned
+    global _first_sighting_warned  # noqa: PLW0603 -- one-shot flag must outlive the call; tests reset it
     if _first_sighting_warned:
         return
     _first_sighting_warned = True
@@ -42,7 +43,7 @@ def _warn_first_sighting(day: str, raw: dict[str, Any]) -> None:
 
 def _warn_unexpected_entry(day: str, raw: Any) -> None:
     """Log once when a letter group or entry is not the expected shape."""
-    global _unexpected_entry_warned
+    global _unexpected_entry_warned  # noqa: PLW0603 -- one-shot flag must outlive the call; tests reset it
     if _unexpected_entry_warned:
         return
     _unexpected_entry_warned = True
@@ -81,6 +82,9 @@ def extract_letters(images: Any) -> list[dict[str, Any]]:
             }
     return sorted(
         letters.values(),
-        key=lambda letter: (str(letter["planned_delivery"] or letter["date"]), letter["id"]),
+        key=lambda letter: (
+            str(letter["planned_delivery"] or letter["date"]),
+            letter["id"],
+        ),
         reverse=True,
     )

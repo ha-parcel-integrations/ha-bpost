@@ -1,5 +1,6 @@
 """Tests for the Mail Ahead letter image entities."""
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.helpers import entity_registry as er
@@ -12,7 +13,7 @@ from custom_components.bpost.const import (
     DOMAIN,
     SOURCE_ACCOUNT,
 )
-from custom_components.bpost.image import BpostLetterImage
+from custom_components.bpost.image import BpostLetterImage, async_setup_entry
 
 from .account.letters_payload import LETTERS_IMAGES
 
@@ -24,10 +25,18 @@ async def _setup_account(hass, letters):
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id="account:me@example.test",
-        data={CONF_SOURCE: SOURCE_ACCOUNT, CONF_EMAIL: "me@example.test", "access_token": "a", "refresh_token": "r"},
+        data={
+            CONF_SOURCE: SOURCE_ACCOUNT,
+            CONF_EMAIL: "me@example.test",
+            "access_token": "a",
+            "refresh_token": "r",
+        },
     )
     entry.add_to_hass(hass)
-    with patch(SUMMARIES, new=AsyncMock(return_value=[])), patch(LETTERS, new=AsyncMock(return_value=letters)):
+    with (
+        patch(SUMMARIES, new=AsyncMock(return_value=[])),
+        patch(LETTERS, new=AsyncMock(return_value=letters)),
+    ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
     return entry
@@ -35,7 +44,8 @@ async def _setup_account(hass, letters):
 
 def _letter_entities(hass, entry):
     return [
-        e for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        e
+        for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
         if e.domain == "image"
     ]
 
@@ -50,24 +60,30 @@ async def test_one_image_per_letter_and_gone_letters_are_removed(hass):
     assert state.attributes["raw"]["itemId"] in {"ITEM-NEW", "ITEM-OLD"}
 
     coordinator = entry.runtime_data.coordinator
-    with patch(SUMMARIES, new=AsyncMock(return_value=[])), patch(
-        LETTERS, new=AsyncMock(return_value={"2026-10-03": LETTERS_IMAGES["2026-10-03"]})
+    with (
+        patch(SUMMARIES, new=AsyncMock(return_value=[])),
+        patch(
+            LETTERS,
+            new=AsyncMock(return_value={"2026-10-03": LETTERS_IMAGES["2026-10-03"]}),
+        ),
     ):
         await coordinator.async_refresh()
         await hass.async_block_till_done()
-    assert [e.unique_id for e in _letter_entities(hass, entry)] == [f"{entry.entry_id}_letter_image_ITEM-NEW"]
+    assert [e.unique_id for e in _letter_entities(hass, entry)] == [
+        f"{entry.entry_id}_letter_image_ITEM-NEW"
+    ]
 
 
 async def test_a_letter_without_a_scan_gets_no_image_entity(hass):
-    without_scan = {"2026-10-03": [{**LETTERS_IMAGES["2026-10-03"][0], "imageUrl": None}]}
+    without_scan = {
+        "2026-10-03": [{**LETTERS_IMAGES["2026-10-03"][0], "imageUrl": None}]
+    }
     entry = await _setup_account(hass, without_scan)
     assert _letter_entities(hass, entry) == []
     assert len(entry.runtime_data.coordinator.letters) == 1
 
 
 async def test_tracking_entries_get_no_image_entities(hass):
-    from custom_components.bpost.image import async_setup_entry
-
     entry = MagicMock()
     entry.data = {}
     add = MagicMock()
@@ -77,7 +93,10 @@ async def test_tracking_entries_get_no_image_entities(hass):
 
 def _letter(ref="REF", url="https://x.test/a.jpg"):
     return {
-        "id": "ID", "date": "2026-10-03", "planned_delivery": "2026-10-03", "sender": None,
+        "id": "ID",
+        "date": "2026-10-03",
+        "planned_delivery": "2026-10-03",
+        "sender": None,
         "raw": {"itemId": "ID", "imageRefId": ref, "imageUrl": url},
     }
 
@@ -95,7 +114,7 @@ def _entity(hass, letters=None):
 
 async def test_scan_is_fetched_once_and_served_from_cache(hass):
     entity, coordinator = _entity(hass)
-    assert entity.image_last_updated == datetime(2026, 10, 3, tzinfo=timezone.utc)
+    assert entity.image_last_updated == datetime(2026, 10, 3, tzinfo=UTC)
     assert entity._attr_translation_placeholders == {"title": "2026-10-03"}
     assert await entity.async_image() == b"png"
     assert await entity.async_image() == b"png"

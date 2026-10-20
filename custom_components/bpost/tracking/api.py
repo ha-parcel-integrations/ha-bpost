@@ -7,6 +7,7 @@ cookie, no ``User-Agent`` override, no ``lang`` query parameter, no
 ``www.bpost.be``/``login.bpost.be``, which do need a browser fingerprint —
 that machinery does not belong on this client and must never be added here.
 """
+
 from __future__ import annotations
 
 import logging

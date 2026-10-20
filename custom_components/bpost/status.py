@@ -4,6 +4,7 @@ The account route reports these codes as ``currentStatus`` and the public
 tracking route as ``activeStep.knownProcessStep`` — one vocabulary behind two
 field names, so the map lives here and neither source can drift from it.
 """
+
 from __future__ import annotations
 
 from .const import ParcelStatus
@@ -34,7 +35,6 @@ KNOWN_PROCESS_STEP_MAP: dict[str, ParcelStatus] = {
     "STATUS_PENDING": ParcelStatus.REGISTERED,
     # A shipping label that exists while the parcel does not yet.
     "mpcPrinted": ParcelStatus.REGISTERED,
-
     # Moving through the network, customs included while nothing is owed.
     "AWAITING": ParcelStatus.IN_TRANSIT,
     "CUSTOMS": ParcelStatus.IN_TRANSIT,
@@ -56,7 +56,6 @@ KNOWN_PROCESS_STEP_MAP: dict[str, ParcelStatus] = {
     "PROCESSING_POST_POINT": ParcelStatus.IN_TRANSIT,
     "PROCESSING_SECOND_PRESENTATION": ParcelStatus.IN_TRANSIT,
     "PROCESSING_SHOP": ParcelStatus.IN_TRANSIT,
-
     # On the round today, whether to an address or to a pickup location.
     "ON_THE_WAY_TO_KARIBOO_POINT": ParcelStatus.OUT_FOR_DELIVERY,
     "ON_THE_WAY_TO_PARCEL_LOCKER": ParcelStatus.OUT_FOR_DELIVERY,
@@ -77,7 +76,6 @@ KNOWN_PROCESS_STEP_MAP: dict[str, ParcelStatus] = {
     "out_for_delivery_byCar": ParcelStatus.OUT_FOR_DELIVERY,
     "out_for_delivery_byEbike": ParcelStatus.OUT_FOR_DELIVERY,
     "out_for_delivery_byECar": ParcelStatus.OUT_FOR_DELIVERY,
-
     # Waiting to be collected — the set the app itself warns the user about.
     "AVAILABLE": ParcelStatus.AT_PICKUP_POINT,
     "AVAILABLE_ADVISED_POST_POINT": ParcelStatus.AT_PICKUP_POINT,
@@ -98,7 +96,6 @@ KNOWN_PROCESS_STEP_MAP: dict[str, ParcelStatus] = {
     "AVAILABLE_POST_POINT_INTERNATIONAL": ParcelStatus.AT_PICKUP_POINT,
     "AVAILABLE_SHOP": ParcelStatus.AT_PICKUP_POINT,
     "REDELIVERY_CAN_PICKUP_POST_POINT": ParcelStatus.AT_PICKUP_POINT,
-
     # Terminal for the recipient: handed over, dropped off, or collected.
     "DELIVERED": ParcelStatus.DELIVERED,
     "DELIVERED_AT_FORCED_NB": ParcelStatus.DELIVERED,
@@ -127,7 +124,6 @@ KNOWN_PROCESS_STEP_MAP: dict[str, ParcelStatus] = {
     "DELIVERED_TO_SENDER_RETURN": ParcelStatus.DELIVERED,
     "PICKED_UP_BY_SENDER": ParcelStatus.DELIVERED,
     "RETOUR_DELIVERED": ParcelStatus.DELIVERED,
-
     # Still heading back to the sender. The BTS_/RETOUR_ families are the
     # return leg of a delivery round; while it is in flight the direction is
     # what matters, so even its "available at a point" codes stay here — that
@@ -148,7 +144,6 @@ KNOWN_PROCESS_STEP_MAP: dict[str, ParcelStatus] = {
     "RETOUR_OUT_FOR_DELIVERY_POST_POINT": ParcelStatus.RETURNING,
     "RETURN_TO_SENDER": ParcelStatus.RETURNING,
     "RETURN_TO_SENDER_INTERNATIONAL": ParcelStatus.RETURNING,
-
     # Stuck: money owed, a payment that failed, or a collection deadline missed.
     "AWAITING_CUSTOMS_PAYMENT": ParcelStatus.PROBLEM,
     "CUSTOMS_PAYMENT_CHALLENGED": ParcelStatus.PROBLEM,

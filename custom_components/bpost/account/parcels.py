@@ -1,8 +1,9 @@
 """Conservative normalisation for My bpost account summaries."""
+
 from __future__ import annotations
 
-import logging
 from datetime import datetime
+import logging
 from typing import Any
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -46,7 +47,13 @@ def _timestamp(value: Any) -> str | None:
     if not isinstance(value, dict) or not (value.get("day") or value.get("date")):
         return None
     try:
-        return datetime.fromisoformat(f"{value.get('day') or value.get('date')}T{value.get('time') or '00:00'}").replace(tzinfo=_BRUSSELS).isoformat()
+        return (
+            datetime.fromisoformat(
+                f"{value.get('day') or value.get('date')}T{value.get('time') or '00:00'}"
+            )
+            .replace(tzinfo=_BRUSSELS)
+            .isoformat()
+        )
     except ValueError:
         return None
 
@@ -57,7 +64,9 @@ def _history(raw: dict[str, Any]) -> list[dict]:
     for event in raw.get("events", []):
         timestamp = _timestamp(event)
         if timestamp:
-            events.append({"timestamp": timestamp, "status": None, "raw_status": event.get("key")})
+            events.append(
+                {"timestamp": timestamp, "status": None, "raw_status": event.get("key")}
+            )
     return sorted(events, key=lambda event: event["timestamp"])[-HISTORY_MAX_EVENTS:]
 
 
@@ -111,14 +120,20 @@ def _current_status(raw: dict[str, Any]) -> str | None:
     return raw.get("parcelActiveStatus") or None
 
 
-def normalize_account_parcel(raw: dict[str, Any], *, include_history: bool = False, lang: str = "en") -> dict[str, Any]:
+def normalize_account_parcel(
+    raw: dict[str, Any], *, include_history: bool = False, lang: str = "en"
+) -> dict[str, Any]:
     """Return the canonical shape, leaving unproven account semantics empty."""
     barcode = _code(raw)
     raw_status = _current_status(raw)
     status = STATUS_MAP.get(str(raw_status), ParcelStatus.UNKNOWN)
     planned_from, planned_to = _planned_window(raw)
     pickup, pickup_point = resolve_pickup_point(raw.get("deliveryPoint"))
-    if status is ParcelStatus.UNKNOWN and raw_status is not None and str(raw_status) not in _warned_statuses:
+    if (
+        status is ParcelStatus.UNKNOWN
+        and raw_status is not None
+        and str(raw_status) not in _warned_statuses
+    ):
         _warned_statuses.add(str(raw_status))
         _LOGGER.warning(
             "Unrecognised bpost account status — help us map it. Open an "
@@ -134,7 +149,8 @@ def normalize_account_parcel(raw: dict[str, Any], *, include_history: bool = Fal
         "receiver": (raw.get("receiver") or {}).get("name"),
         "status": status,
         "raw_status": str(raw_status) if raw_status is not None else None,
-        "delivered": bool(_timestamp(raw.get("actualDeliveryTime"))) or status is ParcelStatus.DELIVERED,
+        "delivered": bool(_timestamp(raw.get("actualDeliveryTime")))
+        or status is ParcelStatus.DELIVERED,
         "delivered_at": _timestamp(raw.get("actualDeliveryTime")),
         "planned_from": planned_from,
         "planned_to": planned_to,
@@ -143,7 +159,9 @@ def normalize_account_parcel(raw: dict[str, Any], *, include_history: bool = Fal
         "weight": _weight_kg(raw),
         "dimensions": _dimensions_cm(raw),
         "url": (
-            ACCOUNT_TRACKING_URL.format(lang=quote(lang, safe=""), barcode=quote(barcode, safe=""))
+            ACCOUNT_TRACKING_URL.format(
+                lang=quote(lang, safe=""), barcode=quote(barcode, safe="")
+            )
             if barcode
             else None
         ),
