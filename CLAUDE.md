@@ -256,8 +256,9 @@ the `en_route_to_pickup_point` sensor worth having. `pickup_point` is
 `deliveryPoint.name`. `pickup` is also true whenever the status is
 `AT_PICKUP_POINT`, so a parcel rerouted after a missed home delivery still
 counts. `awaiting_pickup` gates on the status alone, as the contract asks.
-Only `PARCEL_LOCKER` has been seen; any other `deliveryPoint.type` still
-populates both fields but logs a one-shot WARNING. Its address and coordinates
+Only `PARCEL_LOCKER` and `POSTAL_POINT` (a post point, #12) have been seen;
+any other `deliveryPoint.type` still populates both fields but logs a
+one-shot WARNING. Its address and coordinates
 locate the recipient, so diagnostics redact `deliveryPoint` wholesale and the
 canonical `pickup_point` too.
 

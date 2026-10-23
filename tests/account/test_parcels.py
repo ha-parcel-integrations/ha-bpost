@@ -169,6 +169,18 @@ def test_parcel_locker_is_a_pickup_with_its_name_before_arrival(caplog):
     assert caplog.text == ""
 
 
+def test_post_point_is_a_confirmed_pickup_type(caplog):
+    raw = {
+        **PARCEL_LOCKER_EN_ROUTE,
+        "deliveryPoint": {"type": "POSTAL_POINT", "name": "Shop"},
+    }
+    with caplog.at_level(logging.WARNING):
+        parcel = normalize_account_parcel(raw)
+    assert parcel["pickup"] is True
+    assert parcel["pickup_point"] == "Shop"
+    assert caplog.text == ""
+
+
 def test_unseen_delivery_point_type_still_populates_and_warns_once(caplog):
     raw = {
         **PARCEL_LOCKER_EN_ROUTE,

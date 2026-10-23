@@ -223,7 +223,7 @@ def _warn_delivery_point_first_sighting(delivery_point: Any) -> None:
 
 # Only the types a real parcel has shown. Another type still populates the
 # pickup point, but logs once so it can be confirmed.
-CONFIRMED_DELIVERY_POINT_TYPES = frozenset({"PARCEL_LOCKER"})
+CONFIRMED_DELIVERY_POINT_TYPES = frozenset({"PARCEL_LOCKER", "POSTAL_POINT"})
 _unconfirmed_delivery_point_types_logged: set[str] = set()
 
 
