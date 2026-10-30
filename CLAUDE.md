@@ -60,6 +60,8 @@ confirmed, which assumptions were corrected and what is still open is the
 research doc's job — the **gate** is what belongs here: `payload` moves to
 `confirmed` and `1.0.0` becomes possible once the `expectedDeliveryTimeRange`
 shape or `deliveryPoint`'s non-`null` contents is settled by a real parcel.
+The tracker's `expectedDeliveryTimeRange` was settled 2026-10-30 (#2):
+`{day, time1, time2}` with Brussels-local `HH:MM`, same as the account route.
 `deliveryPoint` was settled on the account route by a real parcel-locker
 parcel (2026-10-05, #3); the public tracker reads it the same way but has not
 shown it yet. `_warn_eta_first_sighting` and `_warn_delivery_point_first_sighting`

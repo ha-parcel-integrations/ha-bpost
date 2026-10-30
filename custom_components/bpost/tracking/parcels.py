@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 import logging
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.config_entries import ConfigEntry
 
@@ -32,6 +33,7 @@ from ..measurements import dimensions_cm, weight_kg
 from ..status import KNOWN_PROCESS_STEP_MAP, NEW_ISSUE_URL, map_known_process_step
 
 _LOGGER = logging.getLogger(__name__)
+_BRUSSELS = ZoneInfo("Europe/Brussels")
 
 # The lowercase ``activeStep.name`` codes bpost has actually been seen to
 # report that its own code vocabulary does not also spell. Everything else
@@ -182,10 +184,7 @@ def _warn_echoed_barcode_mismatch(supplied: str, echoed: str) -> None:
 def _warn_eta_first_sighting(raw_eta: Any) -> None:
     """Log once, ever, the first time ``expectedDeliveryTimeRange`` is populated.
 
-    Inverse of the usual warning (mirrors Ceska Posta's ``_warn_eta_populated``):
-    this field has never been observed non-null, so the first real sighting is
-    the datum that settles which ETA shape bpost actually sends, whatever
-    shape it turns out to be.
+    Now only fires for a shape other than the confirmed ``{day, time1, time2}``.
     """
     global _eta_first_sighting_warned  # noqa: PLW0603 -- one-shot flag must outlive the call; tests reset it
     if _eta_first_sighting_warned:
@@ -395,16 +394,17 @@ def _delivered_at(raw: dict) -> str | None:
 def _planned_window(raw: dict) -> tuple[str | None, str | None]:
     """Return ``(planned_from, planned_to)`` from ``expectedDeliveryTimeRange``.
 
-    Only the ``time1``/``time2`` shape is implemented —
-    the alternative ``{date, startTime, endTime}`` shape, or a plain string,
-    both leave the window ``None`` without raising. Any non-null value fires
-    the one-shot first-sighting warning regardless of shape, since even a
-    recognised ``time1``/``time2`` object has never been seen on this repo's
-    own wire.
+    Confirmed shape: ``{day, time1, time2}`` with Brussels-local ``HH:MM``
+    times. The older ``time1``/``time2`` pair of full timestamps is still
+    accepted. Anything else leaves the window ``None`` without raising and
+    fires the one-shot warning so the new shape gets reported.
     """
     eta = raw.get("expectedDeliveryTimeRange")
-    if eta:
-        _warn_eta_first_sighting(eta)
+    if not eta:
+        return None, None
+    if isinstance(eta, dict) and eta.get("day"):
+        return _local_window(eta)
+    _warn_eta_first_sighting(eta)
     if not isinstance(eta, dict):
         return None, None
     time1, time2 = eta.get("time1"), eta.get("time2")
@@ -412,6 +412,22 @@ def _planned_window(raw: dict) -> tuple[str | None, str | None]:
         to_iso_timestamp(time1) if time1 else None,
         to_iso_timestamp(time2) if time2 else None,
     )
+
+
+def _local_window(eta: dict) -> tuple[str | None, str | None]:
+    """Build the window from ``{day, time1, time2}``; empty bounds span the day."""
+
+    def bound(time: Any, default: str) -> str | None:
+        try:
+            return (
+                datetime.fromisoformat(f"{eta['day']}T{time or default}")
+                .replace(tzinfo=_BRUSSELS)
+                .isoformat()
+            )
+        except ValueError:
+            return None
+
+    return bound(eta.get("time1"), "00:00"), bound(eta.get("time2"), "23:59:59")
 
 
 def normalize_parcel(

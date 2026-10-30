@@ -369,6 +369,14 @@ def test_normalize_delivered_parcel_drops_eta_even_if_present():
     assert parcel["planned_to"] is None
 
 
+def test_normalize_eta_day_time1_time2_is_brussels_local(caplog):
+    raw = item(eta={"day": "2026-10-30", "time1": "11:10", "time2": "13:40"})
+    parcel = _normalize(raw)
+    assert parcel["planned_from"] == "2026-10-30T11:10:00+01:00"
+    assert parcel["planned_to"] == "2026-10-30T13:40:00+01:00"
+    assert caplog.text == ""
+
+
 def test_normalize_eta_missing_time1_time2_stays_none_and_warns(caplog):
     raw = item(eta={"date": "2026-04-29", "startTime": "13:00", "endTime": "15:00"})
     parcel = _normalize(raw)
