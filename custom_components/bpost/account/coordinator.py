@@ -186,15 +186,15 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
             ),
             self.config_entry,
         )
-        incoming_delivered = apply_delivered_filter(
-            sort_parcels_by_ts(delivered, "delivered_at", descending=True),
-            self.config_entry,
+        delivered_sorted = sort_parcels_by_ts(
+            delivered, "delivered_at", descending=True
         )
+        incoming_delivered = apply_delivered_filter(delivered_sorted, self.config_entry)
         incoming_active = sort_parcels_by_ts(active, "planned_from")
 
-        # Active + delivered, combined so the transition to delivered is
-        # visible in one set — same shape the tracking coordinator diffs.
-        seen_incoming = incoming_active + incoming_delivered
+        # Events and remembered state cover every parcel; the retention option
+        # only limits what the delivered sensor shows.
+        seen_incoming = incoming_active + delivered_sorted
         self._fire_incoming_change_events(seen_incoming)
         self._known_state = snapshot_states(seen_incoming)
         self._known_delivery_times = snapshot_delivery_times(seen_incoming)

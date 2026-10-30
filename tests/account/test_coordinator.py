@@ -14,7 +14,12 @@ from custom_components.bpost.account.client import (
 )
 from custom_components.bpost.account.coordinator import BpostAccountCoordinator
 from custom_components.bpost.account.parcels import is_outgoing
-from custom_components.bpost.const import DOMAIN, ParcelStatus
+from custom_components.bpost.const import (
+    CONF_DELIVERED_FILTER_AMOUNT,
+    CONF_DELIVERED_FILTER_TYPE,
+    DOMAIN,
+    ParcelStatus,
+)
 
 from .letters_payload import LETTERS_IMAGES
 
@@ -357,3 +362,39 @@ async def test_letter_image_fetch_goes_through_the_client(hass):
         b"img",
         "image/jpeg",
     )
+
+
+async def test_a_parcel_the_delivered_list_leaves_out_still_fires_delivered(hass):
+    """The retention option limits the delivered sensor, never the events."""
+    client = AsyncMock()
+
+    def summaries(status, **extra):
+        return [
+            {"itemCode": code, "userType": "RECEIVER", "currentStatus": status, **extra}
+            for code in ("IN", "OTHER")
+        ]
+
+    client.async_get_parcel_summaries.side_effect = [
+        summaries("OUT_FOR_DELIVERY_HOME"),
+        summaries(
+            "DELIVERED_AT_HOME",
+            actualDeliveryTime={"day": RECENT_DAY, "time": "12:00"},
+        ),
+    ]
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        options={
+            CONF_DELIVERED_FILTER_TYPE: "parcels",
+            CONF_DELIVERED_FILTER_AMOUNT: 1,
+        },
+    )
+    coordinator = BpostAccountCoordinator(hass, client, entry)
+    delivered = []
+    hass.bus.async_listen(f"{DOMAIN}_parcel_delivered", delivered.append)
+
+    await coordinator._async_update_data()
+    data = await coordinator._async_update_data()
+    await hass.async_block_till_done()
+
+    assert sorted(event.data["barcode"] for event in delivered) == ["IN", "OTHER"]
+    assert len(data["incoming_delivered"]) == 1
