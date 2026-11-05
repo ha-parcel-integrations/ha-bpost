@@ -151,9 +151,10 @@ anything unrecognised counts as incoming so a new value can never make
 parcels disappear. Incoming parcels fire the full canonical event set,
 outgoing only `_outgoing_parcel_status_changed` / `_outgoing_parcel_delivered`
 — a parcel you sent yourself is not news when it first appears, and its ETA
-is the recipient's business. Account polling never suspends: the inbox is one
-batched call, so there is no per-parcel fetch to skip and `delivered_codes`
-stays empty by design.
+is the recipient's business. Account polling never suspends: the inbox is fetched
+as a whole, so there is no per-parcel fetch to skip and `delivered_codes`
+stays empty by design. Details are requested in batches of 20, as the official
+app does (#16): one call for a 29-parcel inbox came back without any details.
 
 **Account entries also carry Mail Ahead letters (2026-10-03, issue #7)** —
 PostNL's letters model: a `letters` sensor, one `image` entity per letter,

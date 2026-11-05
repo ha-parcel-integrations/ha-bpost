@@ -62,6 +62,61 @@ async def test_summary_lists_are_combined():
     ]
 
 
+async def test_listed_parcels_without_details_warn_once(caplog):
+    client = BpostAccountClient(AsyncMock())
+    listing = {"response": {"items": [{"itemCode": "A", "Status": "ACTIVE"}]}}
+    empty = {"response": {"active": {"incoming": []}, "history": []}}
+    client._post = AsyncMock(side_effect=[listing, empty, listing, empty])
+    assert await client.async_get_parcel_summaries() == []
+    assert await client.async_get_parcel_summaries() == []
+    warnings = [r for r in caplog.records if "returned no details" in r.message]
+    assert len(warnings) == 1
+
+
+@pytest.mark.parametrize(
+    ("listed", "batches"),
+    [(1, [1]), (20, [20]), (21, [20, 1]), (29, [20, 9]), (41, [20, 20, 1])],
+)
+async def test_parcel_details_are_requested_in_batches(listed, batches):
+    codes = [f"CODE{index}" for index in range(listed)]
+
+    async def post(path, body):
+        if path == "parcel/getparcelslist":
+            return {"response": {"items": [{"itemCode": code} for code in codes]}}
+        return {
+            "response": {
+                "active": {
+                    "incoming": [{"itemCode": i["itemCode"]} for i in body["items"]]
+                }
+            }
+        }
+
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(side_effect=post)
+
+    entries = await client.async_get_parcel_summaries()
+
+    assert [entry["itemCode"] for entry in entries] == codes
+    detail_bodies = [call.args[1] for call in client._post.call_args_list[1:]]
+    assert [len(body["items"]) for body in detail_bodies] == batches
+    assert [body["isFirstPageCall"] for body in detail_bodies] == [
+        index == 0 for index in range(len(batches))
+    ]
+
+
+async def test_a_batch_with_details_suppresses_the_empty_warning(caplog):
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(
+        side_effect=[
+            {"response": {"items": [{"itemCode": f"C{i}"} for i in range(21)]}},
+            {"response": {"active": {}, "history": []}},
+            {"response": {"active": {"incoming": [{"itemCode": "C20"}]}}},
+        ]
+    )
+    assert await client.async_get_parcel_summaries() == [{"itemCode": "C20"}]
+    assert "returned no details" not in caplog.text
+
+
 async def test_login_keeps_only_rotatable_tokens():
     client = BpostAccountClient(AsyncMock())
     client._post = AsyncMock(

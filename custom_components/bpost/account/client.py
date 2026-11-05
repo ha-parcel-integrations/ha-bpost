@@ -8,11 +8,17 @@ are returned as raw dictionaries; normalisation belongs in ``parcels.py``.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+import logging
 from typing import Any
 
 import aiohttp
 
 from ..const import ACCOUNT_API_KEY, ACCOUNT_API_URL, ACCOUNT_APP_VERSION
+
+_LOGGER = logging.getLogger(__name__)
+
+# The official app never asks for more parcel details than this in one call.
+DETAIL_BATCH_SIZE = 20
 
 TokenCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -66,6 +72,7 @@ class BpostAccountClient:
         self._access_token = access_token
         self._refresh_token = refresh_token
         self._token_callback = token_callback
+        self._warned_empty_details = False
 
     def _headers(
         self, *, include_auth: bool = True, include_static: bool = True
@@ -192,11 +199,32 @@ class BpostAccountClient:
         ]
         if not summaries:
             return []
+        entries: list[dict[str, Any]] = []
+        for start in range(0, len(summaries), DETAIL_BATCH_SIZE):
+            entries.extend(
+                await self._async_get_parcel_details(
+                    summaries[start : start + DETAIL_BATCH_SIZE],
+                    is_first_page=start == 0,
+                )
+            )
+        if not entries and not self._warned_empty_details:
+            self._warned_empty_details = True
+            _LOGGER.warning(
+                "bpost listed %d parcel(s) but returned no details for any of "
+                "them, so no parcels are shown",
+                len(summaries),
+            )
+        return entries
+
+    async def _async_get_parcel_details(
+        self, summaries: list[dict[str, Any]], *, is_first_page: bool
+    ) -> list[dict[str, Any]]:
+        """Return the detail records of one batch of inbox summaries."""
         detail_payload = await self._post(
             "parcel/getparcelsv3",
             {
                 "appLang": "en",
-                "isFirstPageCall": True,
+                "isFirstPageCall": is_first_page,
                 "items": [
                     {
                         "itemCode": item["itemCode"],
