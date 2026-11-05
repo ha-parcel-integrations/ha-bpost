@@ -118,7 +118,7 @@ CONF_REFRESH_TOKEN = "refresh_token"
 # diagnostics or log messages.  A rejected key/version is a compatibility
 # failure, not a reason to ask every user to reauthenticate.
 ACCOUNT_API_URL = "https://mybpost.bpost.cloud/prod_v2"
-ACCOUNT_APP_VERSION = "3.45.1"
+ACCOUNT_APP_VERSION = "3.45.7"
 ACCOUNT_API_KEY = "iBLz8oTy8K1KAnPZJLltU527bWmLt6XQ6y8RF5hT"
 ACCOUNT_TOKEN_REFRESH_MARGIN_SECONDS = 60
 
