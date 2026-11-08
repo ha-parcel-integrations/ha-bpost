@@ -156,6 +156,36 @@ as a whole, so there is no per-parcel fetch to skip and `delivered_codes`
 stays empty by design. Details are requested in batches of 20, as the official
 app does (#16): one call for a 29-parcel inbox came back without any details.
 
+**The live round is a second request on both sources, and lands in `raw`
+only.** bpost keeps the remaining stop count and the courier position out of
+the parcel payload: the tracker fetches them from `track/itemonroundstatus`,
+the account route from `parcel/getparcelchunks` with `type: LOCATION_INFO`
+(added 2026-11-08, issue #18). Both merge the result under `raw`'s
+`itemOnRoundStatus`, so a user reads it as a parcel attribute without any new
+canonical field — deliberately, since neither the stop count nor a coordinate
+pair has a canonical home, and inventing one would be a contract change across
+every carrier. Load-bearing:
+- **`round_status.py` holds the merge, one level up from both sources.** Every
+  value arrives as a 1-element array on *both* routes, and the scalars inside
+  are strings, not numbers — do not assume the account route returns plain
+  numbers. The whole response body is merged, not only the fields anything
+  reads: `raw` is everything bpost sent.
+- **The one field dropped is the lookup's own `status`.** It is that call's
+  result code, while the parcel record's `status` is the parcel's and is the
+  account normaliser's third status fallback — merging the lookup's copy over
+  it would change the reported status. One status field, the real one;
+  `DROPPED_KEYS` is that rule and nothing else belongs in it.
+- **The fetch condition is bpost's own**: the detail's `viewsVisibility`
+  contains `KIZ_PARCEL_SHOW_MAP` (the app's `shouldCallLocationInfo`), plus
+  not-delivered, so an inbox of settled parcels costs nothing. The postcode in
+  the request body is `receiver.postcode` from the parcel itself, not the
+  hub's.
+- **Any failure means "no data"** — including a rejected token, which is
+  swallowed rather than escalated: a bonus attribute must never start a reauth
+  flow or fail the refresh.
+- `lastKnownLocation` and `targetLocation` were already in
+  `diagnostics.TO_REDACT`; `targetLocation` is the recipient's own address.
+
 **Account entries also carry Mail Ahead letters (2026-10-03, issue #7)** —
 PostNL's letters model: a `letters` sensor, one `image` entity per letter,
 and a `bpost_letter_announced` event (also a device trigger) suppressed on

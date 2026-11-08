@@ -17,6 +17,7 @@ from urllib.parse import quote
 import aiohttp
 
 from ..const import ITEM_ON_ROUND_STATUS_URL, TRACKING_API_URL
+from ..round_status import ROUND_STATUS_KEY, round_status_fields
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,8 +64,8 @@ class BpostApiClient:
     ) -> dict[str, Any] | None:
         """Fetch one parcel by barcode + postal code, with its bonus enrichment.
 
-        Returns the ``items[0]`` object (plus a dearrayed ``itemOnRoundStatus``
-        key when the enrichment fired and returned data), or ``None`` when
+        Returns the ``items[0]`` object (plus everything the enrichment
+        answered with, its ``itemOnRoundStatus`` dearrayed), or ``None`` when
         bpost reports the pair as unknown — a top-level ``error`` key or an
         empty ``items`` list, never an HTTP error. Any other failure raises
         :class:`BpostApiError`; network errors propagate as
@@ -78,11 +79,9 @@ class BpostApiClient:
             (item.get("actualDeliveryInformation") or {}).get("actualDeliveryTime")
         )
         if not delivered and item.get("expectedDeliveryTimeRange"):
-            round_status = await self._async_get_item_on_round_status(
-                barcode, postal_code
-            )
-            if round_status is not None:
-                item = {**item, "itemOnRoundStatus": _dearray(round_status)}
+            payload = await self._async_get_item_on_round_status(barcode, postal_code)
+            if payload is not None:
+                item = {**item, **round_status_fields(payload)}
         return item
 
     async def async_get_item(
@@ -124,7 +123,9 @@ class BpostApiClient:
     ) -> dict[str, Any] | None:
         """Fetch the bonus on-round enrichment; any failure means "no data".
 
-        Any non-200 or error body is swallowed as "no data" and must never
+        Returns the whole response body, not just the round object: ``raw``
+        carries everything bpost sent. Any non-200 or error body is swallowed
+        as "no data" and must never
         fail the refresh or mark the parcel unavailable. A network error is
         swallowed the same way — this call
         backs one bonus attribute set, never a canonical field.
@@ -141,17 +142,4 @@ class BpostApiClient:
             return None
         if not isinstance(payload, dict) or "error" in payload:
             return None
-        status = payload.get("itemOnRoundStatus")
-        return status if isinstance(status, dict) else None
-
-
-def _dearray(round_status: dict[str, Any]) -> dict[str, Any]:
-    """Unwrap every 1-element-array value in an ``itemOnRoundStatus`` object.
-
-    ``nrOfStopsUntilTarget``, ``progressUntilTarget``, ``lastKnownLocation``
-    and ``targetLocation`` each arrive as a 1-element array — index ``[0]`` before use.
-    """
-    return {
-        key: (value[0] if isinstance(value, list) and value else value)
-        for key, value in round_status.items()
-    }
+        return payload if isinstance(payload.get(ROUND_STATUS_KEY), dict) else None

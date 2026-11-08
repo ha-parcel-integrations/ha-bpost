@@ -144,12 +144,14 @@ async def test_get_parcel_skips_round_status_without_eta():
 async def test_get_parcel_fetches_round_status_when_active_with_eta():
     parcel = active_item()
     round_status = {
+        "status": "OK",
+        "someUnknownKey": "kept",
         "itemOnRoundStatus": {
             "nrOfStopsUntilTarget": [3],
             "progressUntilTarget": [0.5],
             "lastKnownLocation": [{"lat": 50.8, "long": 4.3}],
             "targetLocation": [{"lat": 50.9, "long": 4.4}],
-        }
+        },
     }
     session = _session_returning((200, {"items": [parcel]}), (200, round_status))
     client = BpostApiClient(session)
@@ -163,6 +165,11 @@ async def test_get_parcel_fetches_round_status_when_active_with_eta():
         "lastKnownLocation": {"lat": 50.8, "long": 4.3},
         "targetLocation": {"lat": 50.9, "long": 4.4},
     }
+    # raw is everything bpost sent, except the lookup's own status: the
+    # parcel's real status must survive the merge.
+    assert result["someUnknownKey"] == "kept"
+    assert result["activeStep"] == parcel["activeStep"]
+    assert result.get("status") == parcel.get("status")
 
 
 async def test_get_parcel_returns_none_when_item_not_found():

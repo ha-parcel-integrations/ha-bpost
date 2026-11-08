@@ -325,3 +325,160 @@ async def test_inbox_shapes_without_usable_items(responses, expected):
     else:
         with pytest.raises(expected):
             await client.async_get_parcel_summaries()
+
+
+def _on_round_inbox(detail, chunk):
+    """Return a ``_post`` side effect for one parcel plus its round lookup."""
+
+    async def post(path, body):
+        if path == "parcel/getparcelslist":
+            return {"response": {"items": [{"itemCode": "ROUND"}]}}
+        if path == "parcel/getparcelsv3":
+            return {"response": {"active": {"incoming": [detail]}}}
+        assert path == "parcel/getparcelchunks"
+        return chunk
+
+    return post
+
+
+_ON_ROUND_DETAIL = {
+    "itemCode": "ROUND",
+    "currentStatus": "ON_THE_WAY_TO_YOU",
+    "viewsVisibility": ["KIZ_PARCEL_SHOW_MAP", "KIZ_PARCEL_ON_ROUND_STOPS"],
+    "receiver": {"postcode": "1000"},
+}
+
+_ON_ROUND_CHUNK = {
+    "response": {
+        "type": "LOCATION_INFO",
+        "data": {
+            "status": "OK",
+            "autoRefreshTimeInSeconds": "60",
+            "itemOnRoundStatus": {
+                "nrOfStopsUntilTarget": ["3"],
+                "progressUntilTarget": ["80"],
+                "estimatedDeliveryTimeWindow": ["10:20 - 13:35"],
+                "lastKnownLocation": [{"latitude": 50.8, "longitude": 4.3}],
+                "targetLocation": [{"latitude": 50.9, "longitude": 4.4}],
+            },
+        },
+    }
+}
+
+
+async def test_round_status_is_merged_dearrayed_into_the_parcel_detail():
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(
+        side_effect=_on_round_inbox(dict(_ON_ROUND_DETAIL), _ON_ROUND_CHUNK)
+    )
+
+    entries = await client.async_get_parcel_summaries()
+
+    assert entries[0]["itemOnRoundStatus"] == {
+        "nrOfStopsUntilTarget": "3",
+        "progressUntilTarget": "80",
+        "estimatedDeliveryTimeWindow": "10:20 - 13:35",
+        "lastKnownLocation": {"latitude": 50.8, "longitude": 4.3},
+        "targetLocation": {"latitude": 50.9, "longitude": 4.4},
+    }
+    # raw is everything bpost sent, except the lookup's own status: the
+    # parcel record's real status must survive the merge.
+    assert entries[0]["autoRefreshTimeInSeconds"] == "60"
+    assert entries[0]["currentStatus"] == "ON_THE_WAY_TO_YOU"
+    assert "status" not in entries[0]
+    chunk_body = client._post.call_args_list[-1].args[1]
+    assert chunk_body == {
+        "appLang": "en",
+        "itemCode": "ROUND",
+        "data": {"postalCode": "1000"},
+        "type": "LOCATION_INFO",
+    }
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        {"itemCode": "ROUND", "receiver": {"postcode": "1000"}},
+        {
+            "itemCode": "ROUND",
+            "viewsVisibility": ["KIZ_PARCEL_ON_ROUND_STOPS"],
+            "receiver": {"postcode": "1000"},
+        },
+        {
+            "itemCode": "ROUND",
+            "viewsVisibility": ["KIZ_PARCEL_SHOW_MAP"],
+            "receiver": {},
+        },
+        {
+            "itemCode": "ROUND",
+            "viewsVisibility": ["KIZ_PARCEL_SHOW_MAP"],
+            "receiver": {"postcode": "1000"},
+            "actualDeliveryTime": {"day": "2026-11-08", "time": "11:02"},
+        },
+    ],
+    ids=["no-visibility", "map-not-allowed", "no-postcode", "delivered"],
+)
+async def test_round_status_is_not_requested_without_bpost_s_own_condition(detail):
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(side_effect=_on_round_inbox(detail, _ON_ROUND_CHUNK))
+
+    entries = await client.async_get_parcel_summaries()
+
+    assert "itemOnRoundStatus" not in entries[0]
+    assert [call.args[0] for call in client._post.call_args_list] == [
+        "parcel/getparcelslist",
+        "parcel/getparcelsv3",
+    ]
+
+
+async def test_round_status_accepts_the_stringified_visibility_shape():
+    detail = dict(_ON_ROUND_DETAIL, viewsVisibility="[KIZ_PARCEL_SHOW_MAP]")
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(side_effect=_on_round_inbox(detail, _ON_ROUND_CHUNK))
+
+    entries = await client.async_get_parcel_summaries()
+
+    assert entries[0]["itemOnRoundStatus"]["nrOfStopsUntilTarget"] == "3"
+
+
+@pytest.mark.parametrize(
+    "chunk",
+    [
+        BpostAccountReauthRequired("token rejected"),
+        BpostAccountApiError("round lookup failed"),
+        {"response": {"type": "LOCATION_INFO", "data": None}},
+        {"response": None},
+        None,
+    ],
+    ids=["reauth", "api-error", "no-data", "no-response", "no-envelope"],
+)
+async def test_a_failed_round_lookup_never_breaks_the_refresh(chunk):
+    detail = dict(_ON_ROUND_DETAIL)
+
+    async def post(path, body):
+        if path == "parcel/getparcelslist":
+            return {"response": {"items": [{"itemCode": "ROUND"}]}}
+        if path == "parcel/getparcelsv3":
+            return {"response": {"active": {"incoming": [detail]}}}
+        if isinstance(chunk, Exception):
+            raise chunk
+        return chunk
+
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(side_effect=post)
+
+    entries = await client.async_get_parcel_summaries()
+
+    assert entries == [detail]
+    assert "itemOnRoundStatus" not in entries[0]
+
+
+async def test_the_round_lookup_never_overwrites_the_parcel_s_own_status():
+    detail = dict(_ON_ROUND_DETAIL, status="PENDING")
+    chunk = {"response": {"data": {"status": "OK", "itemOnRoundStatus": {}}}}
+    client = BpostAccountClient(AsyncMock())
+    client._post = AsyncMock(side_effect=_on_round_inbox(detail, chunk))
+
+    entries = await client.async_get_parcel_summaries()
+
+    assert entries[0]["status"] == "PENDING"

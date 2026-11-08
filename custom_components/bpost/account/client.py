@@ -14,11 +14,16 @@ from typing import Any
 import aiohttp
 
 from ..const import ACCOUNT_API_KEY, ACCOUNT_API_URL, ACCOUNT_APP_VERSION
+from ..round_status import round_status_fields
 
 _LOGGER = logging.getLogger(__name__)
 
 # The official app never asks for more parcel details than this in one call.
 DETAIL_BATCH_SIZE = 20
+
+# bpost's own condition for a live round being available: the parcel detail's
+# ``viewsVisibility`` carries this key while the app may show the courier map.
+ROUND_STATUS_VISIBILITY_KEY = "KIZ_PARCEL_SHOW_MAP"
 
 TokenCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -42,6 +47,20 @@ class BpostAccountReauthRequired(BpostAccountApiError):
 
 class BpostAccountCompatibilityError(BpostAccountApiError):
     """The app key or accepted app version is no longer valid."""
+
+
+def _wants_round_status(entry: dict[str, Any]) -> bool:
+    """Return whether this parcel detail allows the live-round lookup.
+
+    bpost sends ``viewsVisibility`` as a list, and persists it as one string
+    in its own app database, so accept either rather than assume one shape.
+    """
+    if entry.get("actualDeliveryTime"):
+        return False
+    visibility = entry.get("viewsVisibility")
+    if isinstance(visibility, str):
+        return ROUND_STATUS_VISIBILITY_KEY in visibility
+    return isinstance(visibility, list) and ROUND_STATUS_VISIBILITY_KEY in visibility
 
 
 def _tokens(payload: Any) -> dict[str, Any]:
@@ -207,6 +226,8 @@ class BpostAccountClient:
                     is_first_page=start == 0,
                 )
             )
+        for entry in entries:
+            await self._async_add_round_status(entry)
         if not entries and not self._warned_empty_details:
             self._warned_empty_details = True
             _LOGGER.warning(
@@ -215,6 +236,36 @@ class BpostAccountClient:
                 len(summaries),
             )
         return entries
+
+    async def _async_add_round_status(self, entry: dict[str, Any]) -> None:
+        """Merge the live-round enrichment into one parcel detail record.
+
+        bpost keeps the remaining stop count and the courier position out of
+        the parcel detail: they are a separate request, which the app makes
+        while the detail allows the map. Any failure means "no data" — this
+        backs ``raw`` only, never a canonical field, so it must neither fail
+        the refresh nor escalate into a reauth flow.
+        """
+        item_code = entry.get("itemCode")
+        postal_code = (entry.get("receiver") or {}).get("postcode")
+        if not item_code or not postal_code or not _wants_round_status(entry):
+            return
+        try:
+            payload = await self._post(
+                "parcel/getparcelchunks",
+                {
+                    "appLang": "en",
+                    "itemCode": item_code,
+                    "data": {"postalCode": postal_code},
+                    "type": "LOCATION_INFO",
+                },
+            )
+        except BpostAccountApiError:
+            return
+        response = payload.get("response") if isinstance(payload, dict) else None
+        data = response.get("data") if isinstance(response, dict) else None
+        if isinstance(data, dict):
+            entry.update(round_status_fields(data))
 
     async def _async_get_parcel_details(
         self, summaries: list[dict[str, Any]], *, is_first_page: bool

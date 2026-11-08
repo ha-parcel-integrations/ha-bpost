@@ -44,6 +44,7 @@ A custom Home Assistant integration that tracks your [bpost](https://track.bpost
 - `bpost.track_parcel` / `bpost.untrack_parcel` services, so a dashboard button can add a parcel
 - Events + device triggers for no-code automations, including outgoing status
   changes and delivery for account entries
+- Live round details while a parcel is out for delivery, when bpost tracks the courier for it: stops remaining, progress, the courier's last known position and bpost's own time window
 - Opt-in per-parcel status history
 - Manual refresh button and a diagnostic last-update sensor
 
@@ -148,6 +149,37 @@ Standard HA removal applies: **Settings → Devices & Services → bpost → ⋮
 
 A delivered parcel moves from its per-parcel sensor to the delivered sensor automatically.
 
+### Live round details
+
+While a parcel is out for delivery, bpost sometimes tracks the courier on their
+round. When it does, the parcel sensor's `raw` attribute carries an
+`itemOnRoundStatus` object — the same numbers the My bpost app shows on its map:
+
+| Key | Meaning |
+|---|---|
+| `nrOfStopsUntilTarget` | Stops the courier still has before yours |
+| `progressUntilTarget` | How far along the round is, as a percentage |
+| `estimatedDeliveryTimeWindow` | bpost's own wording for the expected window |
+| `lastKnownLocation` | The courier's last known `latitude` / `longitude` |
+| `targetLocation` | The delivery address' `latitude` / `longitude` |
+
+Anything else bpost sends with it lands in `raw` too, next to
+`itemOnRoundStatus` — `autoRefreshTimeInSeconds`, for instance, is how often
+the My bpost app refreshes the courier's position.
+
+bpost only reports this for part of its rounds, and only during the delivery
+window itself, so treat every key as optional. To automate on it, read it
+through a template:
+
+```yaml
+template:
+  - sensor:
+      - name: Parcel stops remaining
+        state: >
+          {{ state_attr('sensor.bpost_parcel_323212345678901234567890', 'raw')
+             .get('itemOnRoundStatus', {}).get('nrOfStopsUntilTarget') }}
+```
+
 ## Parcel status reference
 
 The `status` field is the carrier-agnostic enum shared by the whole integration family. Both the public tracker and the account inbox report the same bpost status vocabulary, and it is mapped in full — preparation, transit, out-for-delivery, ready-to-collect, delivered, return and customs states. An unseen delivery method is still matched on its family prefix, and any code that stays unmapped is reported as `unknown` with a one-shot log warning asking you to [report it](https://github.com/ha-parcel-integrations/ha-bpost/issues/new):
@@ -194,6 +226,7 @@ Ready-to-paste automations and dashboard snippets live in [`examples/`](examples
 
 Third-party cards that work with this integration's sensors:
 
+- [jonisnet/ha-parcel-card](https://github.com/jonisnet/ha-parcel-card)
 - [jonisnet/hki-parcels-card](https://github.com/jonisnet/hki-parcels-card)
 - [klaptafel/ha-package-tracker-card](https://github.com/klaptafel/ha-package-tracker-card)
 
