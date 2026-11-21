@@ -13,7 +13,8 @@ mis-mapping.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from collections.abc import Iterable
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 import logging
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -403,7 +404,7 @@ def _planned_window(raw: dict) -> tuple[str | None, str | None]:
     if not eta:
         return None, None
     if isinstance(eta, dict) and eta.get("day"):
-        return _local_window(eta)
+        return local_window(eta)
     _warn_eta_first_sighting(eta)
     if not isinstance(eta, dict):
         return None, None
@@ -414,20 +415,145 @@ def _planned_window(raw: dict) -> tuple[str | None, str | None]:
     )
 
 
-def _local_window(eta: dict) -> tuple[str | None, str | None]:
-    """Build the window from ``{day, time1, time2}``; empty bounds span the day."""
+def _moment(value: Any, zone: tzinfo) -> tuple[datetime, bool, str] | None:
+    """Return ``(aware datetime, date_only, text)`` for a carrier time, or ``None``.
 
-    def bound(time: Any, default: str) -> str | None:
+    A naive time or a bare date gets ``zone``; an aware time keeps its offset
+    and, when it came in as a string, its own spelling.
+    """
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        moment = datetime.combine(value, time.min, tzinfo=zone)
+        return moment, True, moment.isoformat()
+    elif isinstance(value, str) and value:
         try:
-            return (
-                datetime.fromisoformat(f"{eta['day']}T{time or default}")
-                .replace(tzinfo=_BRUSSELS)
-                .isoformat()
-            )
+            if len(value) == 10:
+                moment = datetime.combine(
+                    date.fromisoformat(value), time.min, tzinfo=zone
+                )
+                return moment, True, moment.isoformat()
+            parsed = datetime.fromisoformat(value)
         except ValueError:
             return None
+        if parsed.tzinfo:
+            return parsed, False, value
+    else:
+        return None
+    moment = parsed if parsed.tzinfo else parsed.replace(tzinfo=zone)
+    return moment, False, moment.isoformat()
 
-    return bound(eta.get("time1"), "00:00"), bound(eta.get("time2"), "23:59:59")
+
+def _end_of_day(moment: datetime, zone: tzinfo) -> datetime:
+    local = moment.astimezone(zone)
+    return datetime.combine(local.date(), time(23, 59, 59), tzinfo=zone)
+
+
+def planned_window(
+    start: Any, end: Any, *, zone: tzinfo
+) -> tuple[str | None, str | None]:
+    """Return ``(planned_from, planned_to)`` in the canonical window shape.
+
+    ``start`` and ``end`` are ISO strings, dates or datetimes, or ``None``; an
+    epoch number must be converted first (see ``to_iso_timestamp``). A window
+    keeps both ends. One moment with a time ends at ``23:59:59`` the same local
+    day; a date covers ``00:00:00`` to ``23:59:59``; two dates run from the
+    first day's start to the last day's end. Equal values are one moment,
+    reversed values are swapped, and ``planned_to`` is never set without
+    ``planned_from``. ``zone`` is the carrier's own zone: it dates naive times
+    and bare dates and decides which day a moment ends on, so a ``Z`` moment
+    still ends on the carrier's local day. When nothing is left of that day
+    after the moment, there is no ``planned_to``.
+    """
+    first = _moment(start, zone)
+    last = _moment(end, zone)
+    if first is None:
+        first, last = last, None
+    if first is None:
+        return None, None
+
+    def closing(moment: tuple[datetime, bool, str]) -> datetime:
+        return _end_of_day(moment[0], zone) if moment[1] else moment[0]
+
+    if last is not None and closing(last) < first[0]:
+        first, last = last, first
+    if last is not None and closing(last) == first[0]:
+        last = None
+
+    if last is None:
+        end_of_day = _end_of_day(first[0], zone)
+        return first[2], end_of_day.isoformat() if end_of_day > first[0] else None
+    return first[2], closing(last).isoformat() if last[1] else last[2]
+
+
+_NO_WINDOW_STATUSES = frozenset(
+    {ParcelStatus.AT_PICKUP_POINT, ParcelStatus.RETURNING, ParcelStatus.DELIVERED}
+)
+
+
+def planned_for_status(
+    status: ParcelStatus, planned_from: str | None, planned_to: str | None
+) -> tuple[str | None, str | None]:
+    """Empty the delivery window once the parcel is at its destination or done."""
+    if status in _NO_WINDOW_STATUSES:
+        return None, None
+    return planned_from, planned_to
+
+
+def is_pickup(
+    route_flag: bool | None,
+    status: ParcelStatus,
+    event_statuses: Iterable[ParcelStatus | None] = (),
+) -> bool:
+    """Whether the delivery route ends at a pickup point.
+
+    The carrier's own route flag wins; otherwise the parcel having reached
+    ``AT_PICKUP_POINT`` at any point counts, so the value survives collection.
+    """
+    if route_flag:
+        return True
+    return status is ParcelStatus.AT_PICKUP_POINT or any(
+        event is ParcelStatus.AT_PICKUP_POINT for event in event_statuses
+    )
+
+
+def _eta_moment(day: Any, clock: Any) -> Any:
+    """A Brussels-local HH:MM on day, or the bare date when there is none."""
+    if not clock:
+        return str(day)
+    return f"{day}T{clock}"
+
+
+def local_window(eta: dict) -> tuple[str | None, str | None]:
+    """Build the window from {day, time1, time2}; a bare day spans the day."""
+    day = eta.get("day")
+    if not day:
+        return None, None
+    return planned_window(
+        _eta_moment(day, eta.get("time1")),
+        _eta_moment(day, eta.get("time2")) if eta.get("time2") else None,
+        zone=_BRUSSELS,
+    )
+
+
+def fold_delivered(status: ParcelStatus, delivered_flag: bool) -> ParcelStatus:
+    """Let bpost's actual delivery time decide the status.
+
+    The status name varies by delivery method, so a delivery time makes the
+    parcel delivered even when the name is unseen or maps elsewhere. A return
+    keeps its ``returning`` status: the delivery time then means it is back at
+    the sender (see :func:`is_finished`).
+    """
+    if delivered_flag and status is not ParcelStatus.RETURNING:
+        return ParcelStatus.DELIVERED
+    return status
+
+
+def is_finished(status: ParcelStatus, delivered_flag: bool) -> bool:
+    """Whether the journey is over: delivered, or a return back at the sender."""
+    return status is ParcelStatus.DELIVERED or (
+        status is ParcelStatus.RETURNING and delivered_flag
+    )
 
 
 def normalize_parcel(
@@ -465,9 +591,11 @@ def normalize_parcel(
     # point) depending on method, and an unmapped method-suffixed code must
     # still report delivered. actualDeliveryInformation is the only reliable
     # signal — this rule must survive any refactor.
-    delivered = bool(
+    delivery_time = bool(
         (raw.get("actualDeliveryInformation") or {}).get("actualDeliveryTime")
     )
+    status = fold_delivered(status, delivery_time)
+    delivered = is_finished(status, delivery_time)
     delivered_at = _delivered_at(raw) if delivered else None
 
     echoed = raw.get("itemCode")
@@ -479,7 +607,8 @@ def normalize_parcel(
         _warn_delivery_point_first_sighting(delivery_point)
     pickup, pickup_point = resolve_pickup_point(delivery_point)
 
-    planned_from, planned_to = (None, None) if delivered else _planned_window(raw)
+    planned_from, planned_to = planned_for_status(status, *_planned_window(raw))
+    pickup = is_pickup(pickup, status)
 
     sender = raw.get("senderCommercialName") or (raw.get("sender") or {}).get("name")
     # Only returned once the request carried a postal code — without one bpost
@@ -499,7 +628,7 @@ def normalize_parcel(
         "delivered_at": delivered_at,
         "planned_from": planned_from,
         "planned_to": planned_to,
-        "pickup": pickup or status is ParcelStatus.AT_PICKUP_POINT,
+        "pickup": pickup,
         "pickup_point": pickup_point,
         "url": tracking_url(barcode, postal_code, lang),
         "weight": weight_kg(raw.get("weightInGrams")),

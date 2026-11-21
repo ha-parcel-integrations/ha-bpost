@@ -11,7 +11,14 @@ from zoneinfo import ZoneInfo
 from ..const import ACCOUNT_TRACKING_URL, HISTORY_MAX_EVENTS, ParcelStatus
 from ..measurements import dimensions_cm, weight_kg
 from ..status import KNOWN_PROCESS_STEP_MAP, NEW_ISSUE_URL
-from ..tracking.parcels import resolve_pickup_point
+from ..tracking.parcels import (
+    fold_delivered,
+    is_finished,
+    is_pickup,
+    local_window,
+    planned_for_status,
+    resolve_pickup_point,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _warned_statuses: set[str] = set()
@@ -71,18 +78,15 @@ def _history(raw: dict[str, Any]) -> list[dict]:
 
 
 def _planned_window(raw: dict[str, Any]) -> tuple[str | None, str | None]:
-    """Build the confirmed v3 ETA window from ``eta.day/time1/time2``.
+    """Build the confirmed v3 ETA window from eta.day/time1/time2.
 
     bpost sends the day alone, with both times empty, until the round is
     planned; that spans the whole local day.
     """
     eta = raw.get("eta")
-    if not isinstance(eta, dict) or not eta.get("day"):
+    if not isinstance(eta, dict):
         return None, None
-    return (
-        _timestamp({"day": eta["day"], "time": eta.get("time1") or "00:00"}),
-        _timestamp({"day": eta["day"], "time": eta.get("time2") or "23:59:59"}),
-    )
+    return local_window(eta)
 
 
 def _account_details(raw: dict[str, Any]) -> list[dict[str, Any]]:
@@ -127,8 +131,7 @@ def normalize_account_parcel(
     barcode = _code(raw)
     raw_status = _current_status(raw)
     status = STATUS_MAP.get(str(raw_status), ParcelStatus.UNKNOWN)
-    planned_from, planned_to = _planned_window(raw)
-    pickup, pickup_point = resolve_pickup_point(raw.get("deliveryPoint"))
+    delivered_at = _timestamp(raw.get("actualDeliveryTime"))
     if (
         status is ParcelStatus.UNKNOWN
         and raw_status is not None
@@ -142,6 +145,11 @@ def normalize_account_parcel(
             NEW_ISSUE_URL,
             raw_status,
         )
+    status = fold_delivered(status, bool(delivered_at))
+    delivered = is_finished(status, bool(delivered_at))
+    planned_from, planned_to = planned_for_status(status, *_planned_window(raw))
+    pickup, pickup_point = resolve_pickup_point(raw.get("deliveryPoint"))
+    pickup = is_pickup(pickup, status)
     return {
         "carrier": "bpost",
         "barcode": barcode,
@@ -149,15 +157,12 @@ def normalize_account_parcel(
         "receiver": (raw.get("receiver") or {}).get("name"),
         "status": status,
         "raw_status": str(raw_status) if raw_status is not None else None,
-        "delivered": bool(_timestamp(raw.get("actualDeliveryTime")))
-        or status is ParcelStatus.DELIVERED,
-        "delivered_at": _timestamp(raw.get("actualDeliveryTime")),
+        "delivered": delivered,
+        "delivered_at": delivered_at if delivered else None,
         "planned_from": planned_from,
         "planned_to": planned_to,
-        "pickup": pickup or status is ParcelStatus.AT_PICKUP_POINT,
+        "pickup": pickup,
         "pickup_point": pickup_point,
-        "weight": _weight_kg(raw),
-        "dimensions": _dimensions_cm(raw),
         "url": (
             ACCOUNT_TRACKING_URL.format(
                 lang=quote(lang, safe=""), barcode=quote(barcode, safe="")
@@ -165,6 +170,8 @@ def normalize_account_parcel(
             if barcode
             else None
         ),
+        "weight": _weight_kg(raw),
+        "dimensions": _dimensions_cm(raw),
         "history": _history(raw) if include_history else None,
         "raw": raw,
     }

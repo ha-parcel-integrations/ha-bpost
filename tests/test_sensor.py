@@ -1,6 +1,6 @@
 """Tests for bpost sensor property logic."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 from custom_components.bpost.const import ParcelStatus
@@ -36,6 +36,7 @@ def _parcel(
     status: ParcelStatus = ParcelStatus.IN_TRANSIT,
     pickup: bool = False,
     planned_from: str | None = None,
+    planned_to: str | None = None,
 ) -> dict:
     return {
         "carrier": "bpost",
@@ -45,6 +46,7 @@ def _parcel(
         "status": status,
         "pickup": pickup,
         "planned_from": planned_from,
+        "planned_to": planned_to,
     }
 
 
@@ -71,12 +73,12 @@ def test_parcel_sensor_missing_barcode():
 def test_next_delivery_picks_earliest():
     coordinator = _coordinator(
         [
-            _parcel("A", planned_from="2026-05-02T10:00:00Z"),
-            _parcel("B", planned_from="2026-05-01T10:00:00Z"),
+            _parcel("A", planned_from="2099-05-02T10:00:00Z"),
+            _parcel("B", planned_from="2099-05-01T10:00:00Z"),
         ]
     )
     sensor = BpostNextDeliverySensor(coordinator, _entry())
-    assert sensor.native_value == datetime(2026, 5, 1, 10, 0, tzinfo=UTC)
+    assert sensor.native_value == datetime(2099, 5, 1, 10, 0, tzinfo=UTC)
     assert sensor.extra_state_attributes["barcode"] == "B"
 
 
@@ -90,7 +92,7 @@ def test_next_delivery_skips_unparseable_moment():
     coordinator = _coordinator(
         [
             _parcel("A", planned_from="not-a-date"),
-            _parcel("B", planned_from="2026-05-01T10:00:00Z"),
+            _parcel("B", planned_from="2099-05-01T10:00:00Z"),
         ]
     )
     sensor = BpostNextDeliverySensor(coordinator, _entry())
@@ -167,3 +169,32 @@ def test_letters_sensor_counts_and_lists_letters():
     assert sensor.unique_id == "e1_letters"
     assert sensor.native_value == 2
     assert sensor.extra_state_attributes == {"letters": [{"id": "A"}, {"id": "B"}]}
+
+
+def _in(**delta) -> str:
+    return (datetime.now(UTC) + timedelta(**delta)).isoformat()
+
+
+def test_next_delivery_skips_a_window_that_has_ended():
+    stale = _parcel("A", planned_from=_in(days=-3), planned_to=_in(days=-2))
+    moment_only = _parcel("B", planned_from=_in(hours=-2))
+    sensor = BpostNextDeliverySensor(
+        _coordinator([stale, moment_only, _parcel("C", planned_from=_in(days=2))]),
+        _entry(),
+    )
+    assert sensor.extra_state_attributes["barcode"] == "C"
+
+
+def test_next_delivery_keeps_a_window_that_is_still_running():
+    running = _parcel("A", planned_from=_in(hours=-1), planned_to=_in(hours=2))
+    sensor = BpostNextDeliverySensor(_coordinator([running]), _entry())
+    assert sensor.extra_state_attributes["barcode"] == "A"
+
+
+def test_en_route_leaves_out_a_returning_pickup_parcel():
+    parcels = [
+        _parcel("BACK", status=ParcelStatus.RETURNING, pickup=True),
+        _parcel("GOING", status=ParcelStatus.IN_TRANSIT, pickup=True),
+    ]
+    sensor = BpostEnRouteToPickupPointSensor(_coordinator(parcels), _entry())
+    assert [p["barcode"] for p in sensor.extra_state_attributes["parcels"]] == ["GOING"]

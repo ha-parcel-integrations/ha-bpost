@@ -37,12 +37,16 @@ This repo follows it exactly.
   summary+diagnostic sensors. Add a new non-parcel sensor's unique_id to the set.
 - **Per-parcel sensors are removed by the summary sensor** via
   `entity_registry.async_remove` (self-removal races and leaves ghosts).
-- **If this carrier can reach `ParcelStatus.AT_PICKUP_POINT` from a real raw
-  status/code**, it needs an `awaiting_pickup` sensor — see *Parcel contract*
-  in `CONVENTIONS.md`. Say "pickup point", not "ServicePoint"/"parcel
-  shop"/"locker", for the generic concept. `ha-dhl-nl`, `ha-dpd`, `ha-gls`,
-  `ha-inpost` are reference implementations; bpost reaches it on the account
-  route (the `AVAILABLE_*` family) but never on the public tracker.
+- **The pickup-point summaries are a pair.** A carrier that can deliver to a
+  pickup point or locker exposes both `en_route_to_pickup_point` and
+  `awaiting_pickup`, even before a real parcel has shown the status or flag
+  (they read 0 until then; record it in `PENDING_*`). A carrier without pickup
+  points exposes neither and keeps `pickup` constantly False.
+  See *Parcel contract* in `CONVENTIONS.md`. Say "pickup point", not
+  "ServicePoint"/"parcel shop"/"locker", for the generic concept; the
+  example carrier demonstrates both canonical sensors.
+  Bpost reaches it on the account route (the `AVAILABLE_*` family) but never
+  on the public tracker.
 
 ## Carrier-specific notes
 
@@ -219,9 +223,10 @@ statuses:
   their own phase while the parcel is moving — for a household dashboard the
   useful fact is that it is going back — but `DELIVERED_TO_SENDER`,
   `BTS_DELIVERED`, `RETOUR_DELIVERED`, `DELIVERED_TO_SENDER_RETURN` and
-  `PICKED_UP_BY_SENDER` are terminal: the parcel never moves again, and the
-  contract has no "returned" terminal, so leaving them `RETURNING` would park
-  them in the active bucket forever. bpost's own app derives the same split.
+  `PICKED_UP_BY_SENDER` are terminal: the parcel never moves again, so leaving them
+  `RETURNING` would park them in the active bucket forever (the contract's
+  `returning` + `delivered: true` would also cover that, but this earlier
+  decision is kept as it is). bpost's own app derives the same split.
   `raw_status` still names the leg, so an automation can tell them apart.
 
 The map is **complete** — an unmapped code arriving means bpost extended its
@@ -272,14 +277,27 @@ mitigation. A `knownProcessStep` outside the vocabulary warns even when the
 name beside it still resolves: that means bpost added a code. Codes and
 vocabulary: research doc.
 
-**`delivered` is never derived from the status name.** It reads
-`bool(actualDeliveryInformation.actualDeliveryTime)` — `activeStep.name`
-varies by delivery method (`delivered` for a mailbox drop,
-`delivered_kariboo_point` for a Kariboo pickup point), so the status name is
-not a reliable delivered signal. This must survive any refactor;
-`test_parcels.py::test_delivered_is_never_derived_from_the_status_name`
-guards it with both a known pickup-point code and a wholly unseen delivered
-method.
+**The delivery time decides the status; `delivered` follows the status.**
+`fold_delivered` makes the status `delivered` whenever
+`bool(actualDeliveryInformation.actualDeliveryTime)` (account:
+`actualDeliveryTime`) is set — `activeStep.name` varies by delivery method
+(`delivered` for a mailbox drop, `delivered_kariboo_point` for a Kariboo pickup
+point, and methods not seen yet), so the name alone is not a reliable delivered
+signal. `delivered` is then `status is DELIVERED` and is never OR-ed with the
+flag afterwards. A return keeps its `returning` status; a delivery time on one
+means it is back at the sender (`delivered: true`, no `_delivered` event). This
+must survive any refactor;
+`test_parcels.py::test_delivered_is_never_derived_from_the_status_name` and
+`test_contract.py` guard it with a known pickup-point code and a wholly unseen
+delivered method.
+
+**Parcel contract:** `tracking/parcels.py` holds the shared helpers
+(`planned_window`, `planned_for_status`, `is_pickup`); the account source
+imports them. `planned_*` are read in Brussels time (a bare ETA day spans the
+whole day, a lone time runs to 23:59:59) and emptied at `at_pickup_point`,
+`returning` and `delivered`; the account `delivered_at` is only set when
+delivered. `pickup` stays true once collected because `deliveryPoint` persists.
+The account decision above (a return leg that arrived is `delivered`) is kept.
 
 **`pickup` means "bound for a pickup point", read from `deliveryPoint`.**
 bpost fills `deliveryPoint` as soon as a parcel is routed to a pickup point
