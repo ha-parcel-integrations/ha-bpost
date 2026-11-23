@@ -41,7 +41,7 @@ A custom Home Assistant integration that tracks your [bpost](https://track.bpost
 - Mail Ahead letters for account entries: a letters sensor plus an image entity
   with the scan of each envelope bpost announces
 - Read-only **Deliveries** calendar with the expected delivery windows
-- `bpost.track_parcel` / `bpost.untrack_parcel` services, so a dashboard button can add a parcel
+- `bpost.track_parcel` / `bpost.untrack_parcel` / `bpost.update_contents` services, so a dashboard button can add a parcel
 - Events + device triggers for no-code automations, including outgoing status
   changes and delivery for account entries
 - Live round details while a parcel is out for delivery, when bpost tracks the courier for it: stops remaining, progress, the courier's last known position and bpost's own time window
@@ -213,10 +213,11 @@ Every parcel payload is the full normalised parcel plus the hub's `device_id`; a
 
 | Service | Fields | Description |
 |---|---|---|
-| `bpost.track_parcel` | `tracking_code`, `postal_code` (optional, to pick a hub when more than one is set up) | Start tracking a parcel |
+| `bpost.track_parcel` | `tracking_code`, `postal_code` (optional, to pick a hub when more than one is set up), `contents` (optional) | Start tracking a parcel, optionally noting what is in it |
 | `bpost.untrack_parcel` | `tracking_code` | Stop tracking a parcel |
+| `bpost.update_contents` | `tracking_code`, `contents`, `config_entry_id` (optional) | Set what is in a parcel, tracked or not; an empty `contents` clears it. It goes to every account or hub that lists the code; name one with `config_entry_id` (needed for a code none lists yet). |
 
-Both act on tracking-code entries; account entries follow your My bpost inbox and are never edited by hand.
+`track_parcel` and `untrack_parcel` act on tracking-code entries; account entries follow your My bpost inbox and are never edited by hand. The `contents` text you set titles the parcel's calendar event and shows on the next-delivery sensor.
 
 ## Examples
 

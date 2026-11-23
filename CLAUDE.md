@@ -129,9 +129,10 @@ one.
 management.** Its options menu is `settings` only (no `parcels` step), and
 `bpost.track_parcel` / `bpost.untrack_parcel` only ever see tracking hubs —
 including the single-hub shortcut, which counts tracking entries so an
-account entry can never silently absorb a parcel. An account-only setup
-registers no services at all, and the shared services are removed when the
-last *tracking* hub unloads, not the last entry.
+account entry can never silently absorb a parcel. `bpost.update_contents`
+serves every loaded entry, so an account-only setup registers just that one;
+track/untrack are removed when the last *tracking* hub unloads,
+`update_contents` when the last loaded entry does.
 
 **Account credentials: tokens are stored, the password never is.** Login
 exchanges email + password for a rotating access/refresh token pair written
@@ -268,6 +269,10 @@ fields it unlocks, not on the endpoint rejecting the request.
   more than one exists; `untrack_parcel` removes the code from whichever
   hub(s) hold it. Services are shared across hubs, so `async_unload_entry`
   only unregisters them once the last tracking hub is gone.
+- **`contents` is a user-set text, never carrier data.** Both normalisers emit
+  `"contents": None`; each coordinator overlays the per-entry `ContentsStore`
+  value by barcode. `update_contents` writes to every loaded entry whose
+  `known_codes` holds the code (any entry when only one is loaded).
 **Status map: `knownProcessStep` → name → prefix → `unknown`, and a prefix hit
 is not evidence.** `map_parcel_status` tries bpost's own code first, then the
 case-flattened `activeStep.name`, then that name's `_`-segment family prefix

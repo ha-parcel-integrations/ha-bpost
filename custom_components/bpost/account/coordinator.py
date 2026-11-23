@@ -20,6 +20,7 @@ from ..const import (
     MID_INTERVAL_MINUTES,
     ParcelStatus,
 )
+from ..contents import ContentsStore, normalize_code
 from ..events import (
     fire_incoming_change_events,
     fire_outgoing_change_events,
@@ -54,6 +55,10 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
             update_interval=timedelta(minutes=MID_INTERVAL_MINUTES),
         )
         self._client = client
+        self.contents_store = ContentsStore(hass, entry.entry_id)
+        # Every code this account lists, delivered ones included:
+        # update_contents asks which entry a code belongs to.
+        self.known_codes: frozenset[str] = frozenset()
         # None on the first update deliberately suppresses historical events.
         self._known_state: dict[str, ParcelStatus] | None = None
         self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
@@ -161,6 +166,13 @@ class BpostAccountCoordinator(DataUpdateCoordinator[dict[str, list[dict]]]):
             normalize_account_parcel(raw, include_history=include_history, lang=lang)
             for raw in summaries
         ]
+        for parcel in parcels:
+            user_value = self.contents_store.get(parcel["barcode"] or "")
+            if user_value is not None:
+                parcel["contents"] = user_value
+        self.known_codes = frozenset(
+            normalize_code(parcel["barcode"]) for parcel in parcels if parcel["barcode"]
+        )
         incoming = [
             parcel
             for raw, parcel in zip(summaries, parcels, strict=True)

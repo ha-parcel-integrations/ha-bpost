@@ -20,6 +20,7 @@ from .const import (
     SOURCE_ACCOUNT,
     SOURCE_TRACKING,
 )
+from .contents import ContentsStore
 from .services import async_setup_services, async_unload_services
 from .tracking.api import BpostApiClient
 from .tracking.coordinator import BpostCoordinator
@@ -72,6 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> boo
     # cleanly (it logs a warning and half-sets-up the entry); doing the first
     # refresh here lets a transient failure fail the whole entry so HA retries
     # it with backoff.
+    await coordinator.contents_store.async_load()
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = BpostData(client=client, coordinator=coordinator)
@@ -86,8 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> boo
     # triggers this refresh, which recomputes the tier and re-arms scheduling.
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
-    if not is_account:
-        async_setup_services(hass)
+    async_setup_services(hass, hub=not is_account)
 
     return True
 
@@ -101,18 +102,23 @@ async def async_unload_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> bo
     """Unload a bpost config entry."""
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
-    # The services are shared across hubs (one per postal code, see
-    # config_flow.py), so only remove them once the last hub is gone —
-    # otherwise unloading one hub would break the others.
-    others_loaded = any(
-        other.entry_id != entry.entry_id
-        and other.state is ConfigEntryState.LOADED
-        and other.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
+    # Drop a service when the last entry that needs it goes, so unloading one
+    # entry never breaks the others. The hub services are shared across hubs
+    # (one per postal code, see config_flow.py).
+    others = [
+        other
         for other in hass.config_entries.async_entries(DOMAIN)
+        if other.entry_id != entry.entry_id and other.state is ConfigEntryState.LOADED
+    ]
+    hubs_left = any(
+        other.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
+        for other in others
     )
-    if (
-        entry.data.get(CONF_SOURCE, SOURCE_TRACKING) == SOURCE_TRACKING
-        and not others_loaded
-    ):
-        async_unload_services(hass)
+    if not hubs_left:
+        async_unload_services(hass, keep_contents=bool(others))
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: BpostConfigEntry) -> None:
+    """Delete the contents the user set for the removed entry."""
+    await ContentsStore(hass, entry.entry_id).async_remove()

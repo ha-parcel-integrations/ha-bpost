@@ -97,6 +97,10 @@
         "postal_code": {
           "name": "Code postal",
           "description": "À quel hub bpost l'ajouter, si plusieurs sont configurés. À omettre s'il n'existe qu'un seul hub."
+        },
+        "contents": {
+          "name": "Contenu",
+          "description": "Ce que contient le colis, avec vos propres mots. Un nouvel appel pour un colis suivi remplace le contenu ; un texte vide l'efface."
         }
       }
     },
@@ -107,6 +111,24 @@
         "tracking_code": {
           "name": "Code de suivi",
           "description": "Le code de suivi bpost à ne plus suivre."
+        }
+      }
+    },
+    "update_contents": {
+      "name": "Mettre à jour le contenu du colis",
+      "description": "Définissez ce que contient un colis, avec vos propres mots, pour un numéro de suivi. Un texte vide efface le contenu.",
+      "fields": {
+        "tracking_code": {
+          "name": "Code de suivi",
+          "description": "Le code de suivi bpost."
+        },
+        "contents": {
+          "name": "Contenu",
+          "description": "Ce que contient le colis, avec vos propres mots. Un texte vide l'efface."
+        },
+        "config_entry_id": {
+          "name": "Compte",
+          "description": "Le compte pour lequel enregistrer cette valeur. Requis quand aucun compte ne connaît encore le code."
         }
       }
     }
@@ -174,6 +196,11 @@
       "parcel": {
         "name": "Colis {barcode}"
       }
+    }
+  },
+  "exceptions": {
+    "update_contents_entry_required": {
+      "message": "Aucun compte ne connaît ce code. Choisissez le compte pour lequel l'enregistrer."
     }
   }
 }

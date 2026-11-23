@@ -22,6 +22,7 @@ async def test_diagnostics_redacts_and_counts(hass):
             "barcode": "323456789012",
             "sender": "Example Shop",
             "receiver": None,
+            "contents": "Running shoes",
             "status": "out_for_delivery",
             "raw_status": "out_for_delivery_byCar",
             "url": "https://track.bpost.cloud/btr/web/#/search?lang=en&itemCode=323456789012&postalCode=1000",
@@ -60,6 +61,7 @@ async def test_diagnostics_redacts_and_counts(hass):
     assert result["entry_options"]["parcels"][0]["postal_code"] == "**REDACTED**"
     assert result["incoming"][0]["barcode"] == "**REDACTED**"
     assert result["incoming"][0]["sender"] == "**REDACTED**"
+    assert result["incoming"][0]["contents"] == "**REDACTED**"
     assert result["incoming"][0]["url"] == "**REDACTED**"
     assert result["incoming"][0]["raw"]["deliveryPoint"] == "**REDACTED**"
     assert result["incoming"][0]["pickup_point"] == "**REDACTED**"

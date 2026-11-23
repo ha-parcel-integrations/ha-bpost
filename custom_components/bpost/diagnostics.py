@@ -37,6 +37,7 @@ TO_REDACT = {
     "postal_code",
     "sender",
     "receiver",
+    "contents",
     "url",
     "raw_status",
     # bpost payload fields

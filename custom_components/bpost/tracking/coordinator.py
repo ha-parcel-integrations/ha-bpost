@@ -32,6 +32,7 @@ from ..const import (
     STAGGER_MINUTES,
     ParcelStatus,
 )
+from ..contents import ContentsStore, normalize_code
 from ..events import (
     fire_incoming_change_events,
     snapshot_delivery_times,
@@ -162,6 +163,10 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
             update_interval=timedelta(minutes=HOT_INTERVAL_MINUTES),
         )
         self._client = client
+        self.contents_store = ContentsStore(hass, entry.entry_id)
+        # Every code this hub lists, delivered ones included: update_contents
+        # asks which entry a code belongs to.
+        self.known_codes: frozenset[str] = frozenset()
         self.delivered: list[dict] = []
         # barcode -> last successful raw payload, so a transient fetch
         # failure or a not-found blip keeps the parcel visible instead of
@@ -367,6 +372,11 @@ class BpostCoordinator(DataUpdateCoordinator[list[dict]]):
             )
             for key, (barcode, postal_code, raw) in raws_by_key.items()
         ]
+        for _, parcel in entries:
+            user_value = self.contents_store.get(parcel["barcode"] or "")
+            if user_value is not None:
+                parcel["contents"] = user_value
+        self.known_codes = frozenset(normalize_code(barcode) for barcode, _ in tracked)
         active = [parcel for _, parcel in entries if not parcel["delivered"]]
         delivered = [parcel for _, parcel in entries if parcel["delivered"]]
         # Rebuilt fresh from this cycle's data — a key whose payload just
